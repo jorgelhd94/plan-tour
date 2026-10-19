@@ -1,0 +1,13 @@
+{
+  "name": "plan-tour",
+  "version": "0.1.0",
+  "description": "Turns a Claude Code plan into an animated, narrated story in your browser that you can interrupt and steer from the chat.",
+  "author": {
+    "name": "jorgelhd94",
+    "url": "https://github.com/jorgelhd94"
+  },
+  "homepage": "https://github.com/jorgelhd94/plan-tour",
+  "repository": "https://github.com/jorgelhd94/plan-tour",
+  "license": "MIT",
+  "keywords": ["plan", "explainer", "walkthrough", "voice", "tts", "onboarding"]
+}

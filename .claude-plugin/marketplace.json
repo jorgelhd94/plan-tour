@@ -1,0 +1,15 @@
+{
+  "name": "plan-tour",
+  "description": "Animated, narrated walkthroughs of Claude Code plans",
+  "owner": {
+    "name": "jorgelhd94",
+    "url": "https://github.com/jorgelhd94"
+  },
+  "plugins": [
+    {
+      "name": "plan-tour",
+      "source": "./plugins/plan-tour",
+      "description": "Turns a Claude Code plan into an animated, narrated story in your browser that you can interrupt and steer from the chat."
+    }
+  ]
+}

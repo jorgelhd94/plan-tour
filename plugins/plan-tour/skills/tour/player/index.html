@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan Tour</title>
+<style>
+  @font-face { font-family: "Plex Sans"; font-weight: 400; src: url(fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "Plex Sans"; font-weight: 500; src: url(fonts/ibm-plex-sans-latin-500-normal.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "Plex Sans"; font-weight: 600; src: url(fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "Plex Mono"; font-weight: 400; src: url(fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "Plex Mono"; font-weight: 500; src: url(fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2"); font-display: swap; }
+  :root {
+    --bg: #0f1726;
+    --floor-dot: rgba(150, 175, 210, .09);
+    --card: #19253a;
+    --card-2: #213049;
+    --line: #34465f;
+    --text: #edf2f8;
+    --text-2: #b9c5d6;
+    --muted: #7d8ca3;
+    --flow: #6cc4de;
+    --bad: #ff7d6e;
+    --good: #5fd39a;
+    --warn: #f3c15b;
+    --sans: "Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "Plex Mono", Consolas, "Cascadia Mono", monospace;
+    --ease: cubic-bezier(.2, .75, .2, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased; overflow: hidden; }
+  body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; }
+  :focus-visible { outline: 2px solid var(--flow); outline-offset: 3px; border-radius: 6px; }
+
+  /* ---------- minimal header ---------- */
+  header { display: flex; align-items: center; gap: 20px; padding: 20px clamp(20px, 3vw, 48px) 0; z-index: 3; }
+  .chapter { font-size: 15px; color: var(--text-2); font-weight: 500; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chapter span { color: var(--muted); font-weight: 400; margin-right: 10px; font-variant-numeric: tabular-nums; }
+  .track { display: flex; gap: 5px; margin-left: auto; width: min(360px, 40vw); height: 4px; flex: none; }
+  .seg { flex: 1; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .seg.pending { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+  .seg i { display: block; height: 100%; background: var(--text-2); transform-origin: left; transform: scaleX(0); }
+  .seg.current i { background: var(--flow); }
+
+  /* ---------- stage ---------- */
+  #stage { position: relative; overflow: hidden; min-height: 0;
+    background-image: radial-gradient(var(--floor-dot) 1.2px, transparent 1.3px); background-size: 28px 28px; }
+  #world { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0;
+    transition: transform 1.1s var(--ease); }
+  #world.dimmed > :not(.keep-lit) { opacity: .18; transition: opacity .5s; }
+  svg.links { position: absolute; inset: 0; width: 1600px; height: 900px; overflow: visible; pointer-events: none; }
+  svg.links path { fill: none; stroke: #4e6584; stroke-width: 3; stroke-linecap: round; transition: stroke .4s, opacity .5s; }
+  svg.links path.flow { stroke: var(--flow); }
+  svg.links path.bad { stroke: var(--bad); }
+  svg.links path.good { stroke: var(--good); }
+
+  .actor { position: absolute; width: 190px; transform: translate(-50%, -50%) scale(.6); opacity: 0;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    transition: transform .6s var(--ease), opacity .45s, filter .4s; }
+  .actor.in { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  .actor .badge { width: 104px; height: 104px; border-radius: 28px; background: var(--card); display: grid; place-items: center;
+    box-shadow: inset 0 0 0 2px var(--line); position: relative; transition: box-shadow .4s, background .4s; }
+  .actor.k-person .badge { border-radius: 50%; }
+  .actor .badge svg { width: 50px; height: 50px; stroke: var(--text-2); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: stroke .4s; }
+  .actor .name { margin-top: 14px; font-size: 24px; font-weight: 600; letter-spacing: -.01em; line-height: 1.15; }
+  .actor .sub { margin-top: 4px; font-size: 17px; color: var(--muted); line-height: 1.25; }
+  .actor.focus .badge { box-shadow: inset 0 0 0 3px var(--flow), 0 0 0 10px rgba(108, 196, 222, .1); background: var(--card-2); }
+  .actor.focus .badge svg { stroke: var(--flow); }
+  .actor.bad .badge { box-shadow: inset 0 0 0 3px var(--bad), 0 0 0 10px rgba(255, 125, 110, .12); }
+  .actor.bad .badge svg { stroke: var(--bad); }
+  .actor.good .badge { box-shadow: inset 0 0 0 3px var(--good), 0 0 0 10px rgba(95, 211, 154, .12); }
+  .actor.good .badge svg { stroke: var(--good); }
+  #world.focusing .actor.in:not(.focus):not(.bad):not(.good) { opacity: .28; }
+  #world.focusing svg.links path:not(.lit) { opacity: .25; }
+  .mark { position: absolute; right: -10px; top: -10px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 22px; font-weight: 700; color: var(--bg); transform: scale(0); transition: transform .45s cubic-bezier(.3, 1.6, .5, 1); }
+  .mark.on { transform: scale(1); }
+  .mark.x { background: var(--bad); }
+  .mark.ok { background: var(--good); }
+
+  .linklabel { position: absolute; transform: translate(-50%, -50%); font-size: 16px; color: var(--muted); background: var(--bg);
+    padding: 2px 10px; border-radius: 999px; opacity: 0; transition: opacity .4s; white-space: nowrap; }
+  .linklabel.in { opacity: 1; }
+
+  .token { position: absolute; left: 0; top: 0; offset-rotate: 0deg; offset-anchor: 50% 50%;
+    display: flex; align-items: center; gap: 9px; padding: 9px 16px 9px 12px; border-radius: 12px;
+    background: #22344f; box-shadow: inset 0 0 0 2px var(--flow), 0 10px 30px rgba(0, 0, 0, .35);
+    font-size: 18px; font-weight: 500; white-space: nowrap; transition: box-shadow .35s, background .35s, opacity .4s; }
+  .token svg { width: 22px; height: 22px; stroke: var(--flow); fill: none; stroke-width: 1.8; flex: none; transition: stroke .35s; }
+  .token.bad { box-shadow: inset 0 0 0 2px var(--bad), 0 10px 30px rgba(0, 0, 0, .35); background: #3a2630; }
+  .token.bad svg { stroke: var(--bad); }
+  .token.good { box-shadow: inset 0 0 0 2px var(--good), 0 10px 30px rgba(0, 0, 0, .35); background: #1f3a33; }
+  .token.good svg { stroke: var(--good); }
+  .token .t { display: inline-block; }
+  .token.swap .t { animation: swap .6s var(--ease); }
+  @keyframes swap { 0% { opacity: 1; } 35% { opacity: 0; transform: translateY(-8px); } 65% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
+  .token.pulse { animation: pulse-t .7s ease 2; }
+  @keyframes pulse-t { 50% { transform: scale(1.12); } }
+
+  .note { position: absolute; transform: translate(-50%, 0) translateY(10px); opacity: 0; max-width: 300px; width: max-content;
+    font-size: 19px; line-height: 1.3; padding: 11px 16px; border-radius: 12px; background: var(--card-2); color: var(--text);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .3); transition: opacity .4s, transform .5s var(--ease); text-align: center; }
+  .note.in { opacity: 1; transform: translate(-50%, 0); }
+  .note::before { content: ""; position: absolute; left: 50%; top: -7px; width: 14px; height: 14px; background: inherit;
+    transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
+  .note.above::before { top: auto; bottom: -7px; }
+  .note.bad { background: #4a2a30; color: #ffd9d3; }
+  .note.good { background: #1f4337; color: #d4f6e5; }
+  .note.flow { background: #1f3b4c; color: #d9f2fa; }
+
+  /* big statement: the key moment, full screen */
+  .big { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 8vw; pointer-events: none; z-index: 2;
+    opacity: 0; transition: opacity .5s; }
+  .big.in { opacity: 1; }
+  .big p { margin: 0; font-size: clamp(36px, 4.6vw, 76px); line-height: 1.1; letter-spacing: -.025em; font-weight: 600;
+    text-align: center; max-width: 20ch; text-wrap: balance; transform: translateY(14px); transition: transform .7s var(--ease); }
+  .big.in p { transform: none; }
+  .big.bad p { color: #ffb4a9; }
+  .big.good p { color: #a8ecc8; }
+  #stage.has-big #world { opacity: .12; transition: opacity .5s, transform 1.1s var(--ease); }
+
+  /* code card sliding in from the right */
+  .codecard { position: absolute; right: clamp(16px, 2.5vw, 40px); top: 50%; width: min(46vw, 760px); max-height: 80%;
+    transform: translate(30px, -50%); opacity: 0; transition: transform .6s var(--ease), opacity .45s; z-index: 2;
+    background: #142034; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line), 0 24px 60px rgba(0, 0, 0, .45);
+    display: flex; flex-direction: column; overflow: hidden; }
+  .codecard.in { transform: translate(0, -50%); opacity: 1; }
+  .codecard .path { padding: 12px 18px; font-family: var(--mono); font-size: 14px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .codecard pre { margin: 0; padding: 14px 0; overflow: auto; font-family: var(--mono); font-size: clamp(13px, 1vw, 17px); line-height: 1.6; tab-size: 4; }
+  .codecard .ln { display: block; white-space: pre; padding-right: 18px; color: var(--text-2); transition: opacity .4s, background .4s; }
+  .codecard .ln::before { content: attr(data-n); display: inline-block; width: 4em; padding-right: 1.2em; text-align: right; color: #4c5d77; }
+  .codecard.focusing .ln:not(.hl) { opacity: .35; }
+  .codecard .ln.hl { background: rgba(108, 196, 222, .12); box-shadow: inset 3px 0 var(--flow); color: var(--text); }
+  #stage.has-code #world { transform-origin: 0 0; }
+
+  /* ---------- footer: video-style captions ---------- */
+  footer { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; padding: 14px clamp(20px, 3vw, 48px) 22px; z-index: 3; }
+  .caption { grid-column: 2; margin: 0; max-width: min(1000px, 70vw); text-align: center; font-size: clamp(18px, 1.5vw, 25px); line-height: 1.4;
+    color: var(--text); min-height: 2.8em; display: flex; align-items: center; justify-content: center; text-wrap: balance; }
+  .caption.status { color: var(--muted); font-size: clamp(15px, 1.15vw, 19px); }
+  body.no-captions .caption:not(.status) { visibility: hidden; }
+  .controls { grid-column: 3; justify-self: end; display: flex; gap: 6px; opacity: .55; transition: opacity .3s; }
+  .controls:hover, .controls:focus-within { opacity: 1; }
+  .controls button { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px; cursor: pointer;
+    background: transparent; color: var(--text-2); border: 1px solid var(--line); }
+  .controls button:hover { background: var(--card); color: var(--text); }
+  .controls button.primary { background: var(--text); color: var(--bg); border-color: var(--text); width: 50px; }
+  .controls button[aria-pressed="false"] { color: #55657d; }
+  .controls svg { width: 19px; height: 19px; }
+
+  /* ---------- written plan panel ---------- */
+  .plan { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 46vw); z-index: 6; background: #131d2f;
+    box-shadow: -1px 0 0 var(--line), -30px 0 80px rgba(0, 0, 0, .4); transform: translateX(102%);
+    transition: transform .45s var(--ease); display: flex; flex-direction: column; }
+  .plan.open { transform: none; }
+  .plan-head { display: flex; align-items: center; gap: 12px; padding: 18px 24px; border-bottom: 1px solid var(--line); }
+  .plan-head strong { font-size: 16px; font-weight: 600; }
+  .plan-head span { font-size: 14px; color: var(--muted); margin-right: auto; }
+  .plan-head button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: transparent;
+    color: var(--text-2); cursor: pointer; display: grid; place-items: center; }
+  .plan-head button:hover { background: var(--card); color: var(--text); }
+  .plan-body { overflow: auto; padding: 8px 32px 64px; font-size: 16.5px; line-height: 1.65; color: var(--text-2); }
+  .plan-body h1, .plan-body h2, .plan-body h3, .plan-body h4 { color: var(--text); line-height: 1.25; letter-spacing: -.01em;
+    margin: 1.6em 0 .5em; scroll-margin-top: 16px; }
+  .plan-body h1 { font-size: 28px; } .plan-body h2 { font-size: 22px; } .plan-body h3 { font-size: 18px; } .plan-body h4 { font-size: 16px; }
+  .plan-body p, .plan-body ul, .plan-body ol, .plan-body table, .plan-body pre, .plan-body blockquote { margin: 0 0 1em; }
+  .plan-body ul, .plan-body ol { padding-left: 1.4em; }
+  .plan-body li { margin: .25em 0; }
+  .plan-body a { color: var(--flow); }
+  .plan-body strong { color: var(--text); }
+  .plan-body code { font-family: var(--mono); font-size: .88em; background: #1c2a41; padding: .12em .4em; border-radius: 5px; color: #d6e2f0; }
+  .plan-body pre { background: #0f1828; border-radius: 10px; padding: 14px 16px; overflow: auto; box-shadow: inset 0 0 0 1px var(--line); }
+  .plan-body pre code { background: none; padding: 0; font-size: 14px; line-height: 1.55; }
+  .plan-body table { border-collapse: collapse; width: 100%; font-size: 15px; display: block; overflow-x: auto; }
+  .plan-body th, .plan-body td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  .plan-body th { color: var(--text); font-weight: 600; }
+  .plan-body blockquote { border-left: 3px solid var(--line); padding-left: 14px; color: var(--muted); }
+  .plan-body hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
+  .plan-body .here { position: relative; }
+  .plan-body .here::before { content: ""; position: absolute; left: -18px; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--flow); }
+  .plan-body h1.here, .plan-body h2.here, .plan-body h3.here, .plan-body h4.here { color: var(--flow); }
+  .plan-empty { color: var(--muted); padding: 24px 0; }
+  body.plan-open #stage, body.plan-open footer, body.plan-open header { margin-right: min(620px, 46vw); }
+  footer, header { transition: margin .45s var(--ease); }
+  #stage { transition: margin .45s var(--ease); }
+  @media (max-width: 800px) { .plan { width: 100%; } body.plan-open #stage, body.plan-open footer, body.plan-open header { margin-right: 0; } }
+
+  .intro { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: rgba(10, 16, 28, .88); backdrop-filter: blur(6px); }
+  .intro-card { width: min(520px, calc(100% - 32px)); padding: 40px; border-radius: 18px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+  .intro-card h2 { margin: 0 0 12px; font-size: 32px; letter-spacing: -.02em; }
+  .intro-card p { margin: 0 0 28px; color: var(--text-2); font-size: 17px; line-height: 1.55; }
+  .intro-card button { font: 600 17px var(--sans); padding: 14px 26px; border-radius: 12px; border: 0; cursor: pointer; background: var(--flow); color: #06222c; }
+  .hidden { display: none !important; }
+
+  @media (max-width: 800px) {
+    footer { grid-template-columns: 1fr; }
+    .caption, .controls { grid-column: 1; justify-self: center; max-width: 100%; }
+    .codecard { width: calc(100% - 32px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #world, .actor, .note, .codecard, .big p { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="chapter" id="chapter"></div>
+  <div class="track" id="track" aria-hidden="true"></div>
+</header>
+
+<div id="stage">
+  <div id="world"><svg class="links" id="links" viewBox="0 0 1600 900"></svg></div>
+  <div class="big" id="big"><p></p></div>
+</div>
+
+<footer>
+  <p class="caption status" id="caption" aria-live="polite"></p>
+  <div class="controls">
+    <button id="prev" aria-label="Previous scene" title="Previous (←)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <button id="replay" aria-label="Replay scene" title="Replay (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+    <button id="toggle" class="primary" aria-label="Pause" title="Pause or resume (Space)"><svg viewBox="0 0 24 24" fill="currentColor" id="toggle-icon"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+    <button id="next" aria-label="Next scene" title="Next (→)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button id="planbtn" aria-label="Show the written plan" aria-pressed="false" title="Written plan (P)" class="hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></button>
+    <button id="cc" aria-label="Captions" aria-pressed="true" title="Captions (C)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3"/></svg></button>
+  </div>
+</footer>
+
+<aside class="plan" id="plan" aria-label="Written plan" aria-hidden="true">
+  <div class="plan-head"><strong>Plan</strong><span id="plan-where"></span>
+    <button id="plan-close" aria-label="Close the plan" title="Close (P or Esc)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="plan-body" id="plan-body"><p class="plan-empty">Claude hasn't published the written plan yet.</p></div>
+</aside>
+
+<div class="intro" id="intro">
+  <div class="intro-card" role="dialog" aria-labelledby="intro-title">
+    <h2 id="intro-title">Plan tour</h2>
+    <p id="intro-text">Claude walks you through it step by step, like a story. To ask something or correct it, write in the chat.</p>
+    <button id="start">Start</button>
+  </div>
+</div>
+
+<script src="marked.umd.js"></script>
+<script>/*DATA*/</script>
+<script>
+// ======================= icons (simple strokes) =======================
+const ICONS = {
+  person: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',
+  screen: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 10v10"/>',
+  server: '<rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 6.5h.01M8 17.5h.01"/>',
+  filter: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  db: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  store: '<path d="M3 9l2-5h14l2 5"/><path d="M4 9v11h16V9"/><path d="M3 9h18M9 20v-6h6v6"/>',
+  cloud: '<path d="M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8z"/>',
+  box: '<path d="M21 8l-9-5-9 5 9 5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+  envelope: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+};
+
+// ======================= state =======================
+const $ = (id) => document.getElementById(id);
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const W = 1600, H = 900;
+const S = {
+  scenes: [], tour: null, revision: 0, done: false, total: 0, outline: null,
+  scene: 0, step: 0, started: false, paused: false, playing: false,
+  actors: new Map(), links: new Map(), tokens: new Map(), notes: [], code: null,
+  camera: { s: 1, tx: 0, ty: 0 }, camTarget: null, runId: 0,
+};
+
+// ======================= preferences =======================
+function pref(k, f) { try { return localStorage.getItem(k) ?? f; } catch { return f; } }
+function setPref(k, v) { try { localStorage.setItem(k, v); } catch {} }
+let captions = pref("plan-tour-cc", "on") === "on";
+function applyCaptions() { document.body.classList.toggle("no-captions", !captions); $("cc").setAttribute("aria-pressed", String(captions)); }
+applyCaptions();
+
+// ======================= world: actors, links, envelopes, notes =======================
+const world = $("world"), linksSvg = $("links");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const dur = (ms) => reduceMotion || S.instant ? 0 : ms;
+const wait = (ms) => new Promise(r => setTimeout(r, dur(ms)));
+
+function actorDef(scene, id) { return scene.actors?.[id] || S.actorDefs?.[id]; }
+
+function enter(id, def) {
+  if (S.actors.has(id)) { const a = S.actors.get(id); a.el.classList.add("in"); return; }
+  if (!def) { console.warn("actor sin definir", id); return; }
+  const el = document.createElement("div");
+  el.className = `actor k-${def.icon || "box"}`;
+  el.style.left = def.x + "px"; el.style.top = def.y + "px";
+  el.innerHTML = `<div class="badge"><svg viewBox="0 0 24 24">${ICONS[def.icon] || ICONS.box}</svg><span class="mark"></span></div>
+    <div class="name">${esc(def.label)}</div>${def.sub ? `<div class="sub">${esc(def.sub)}</div>` : ""}`;
+  world.appendChild(el);
+  S.actors.set(id, { el, def });
+  if (S.instant) el.classList.add("in"); else requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("in")));
+}
+
+function exit(id) {
+  const a = S.actors.get(id); if (!a) return;
+  a.el.classList.remove("in");
+  setTimeout(() => a.el.remove(), dur(500));
+  S.actors.delete(id);
+  for (const [lid, l] of S.links) if (l.from === id || l.to === id) removeLink(lid);
+}
+
+function center(id) { const a = S.actors.get(id); return a ? { x: a.def.x, y: a.def.y } : null; }
+
+function curve(p, q, bend = 0.12) {
+  const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, dx = q.x - p.x, dy = q.y - p.y;
+  return { c: { x: mx - dy * bend, y: my + dx * bend } };
+}
+
+function trim(p, q, r1, r2) {
+  const dx = q.x - p.x, dy = q.y - p.y, L = Math.hypot(dx, dy) || 1;
+  return [{ x: p.x + dx / L * r1, y: p.y + dy / L * r1 }, { x: q.x - dx / L * r2, y: q.y - dy / L * r2 }];
+}
+
+function link(spec) {
+  const id = spec.id || `${spec.from}>${spec.to}`;
+  if (S.links.has(id)) { setLinkTone(id, spec.tone); return; }
+  const p0 = center(spec.from), q0 = center(spec.to);
+  if (!p0 || !q0) return;
+  const [p, q] = trim({ x: p0.x, y: p0.y - 20 }, { x: q0.x, y: q0.y - 20 }, 82, 92);
+  const { c } = curve(p, q, spec.bend ?? 0.08);
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", `M${p.x},${p.y} Q${c.x},${c.y} ${q.x},${q.y}`);
+  path.setAttribute("marker-end", "url(#arrow)");
+  if (spec.tone) path.classList.add(spec.tone);
+  linksSvg.appendChild(path);
+  const len = path.getTotalLength();
+  if (!S.instant && !reduceMotion) {
+    path.style.strokeDasharray = len; path.style.strokeDashoffset = len;
+    path.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 700, easing: "cubic-bezier(.2,.75,.2,1)", fill: "forwards" })
+      .onfinish = () => { path.style.strokeDasharray = ""; path.style.strokeDashoffset = ""; };
+  }
+  let label = null;
+  if (spec.label) {
+    label = document.createElement("div"); label.className = "linklabel"; label.textContent = spec.label;
+    const mid = path.getPointAtLength(len / 2);
+    label.style.left = mid.x + "px"; label.style.top = (mid.y - 30) + "px";
+    world.appendChild(label);
+    setTimeout(() => label.classList.add("in"), dur(450));
+  }
+  S.links.set(id, { path, label, from: spec.from, to: spec.to });
+}
+function setLinkTone(id, tone) { const l = S.links.get(id); if (!l) return; l.path.classList.remove("flow", "bad", "good"); if (tone) l.path.classList.add(tone); }
+function removeLink(id) { const l = S.links.get(id); if (!l) return; l.path.remove(); l.label?.remove(); S.links.delete(id); }
+
+async function send(spec) {
+  const id = spec.token || "t";
+  let tk = S.tokens.get(id);
+  if (!tk) {
+    const el = document.createElement("div");
+    el.className = "token";
+    el.innerHTML = `<svg viewBox="0 0 24 24">${ICONS[spec.icon] || ICONS.envelope}</svg><span class="t"></span>`;
+    world.appendChild(el);
+    tk = { el, at: null }; S.tokens.set(id, tk);
+  }
+  if (spec.label) tk.el.querySelector(".t").textContent = spec.label;
+  if (spec.tone) { tk.el.classList.remove("bad", "good", "flow"); tk.el.classList.add(spec.tone); }
+  const from = center(spec.from || tk.at), to = center(spec.to);
+  if (!to) return;
+  const lift = 146;
+  const p = from ? { x: from.x, y: from.y - lift } : { x: to.x, y: to.y - lift };
+  const q = { x: to.x, y: to.y - lift };
+  const c = { x: (p.x + q.x) / 2, y: Math.min(p.y, q.y) - 70 };
+  tk.el.style.offsetPath = `path("M${p.x},${p.y} Q${c.x},${c.y} ${q.x},${q.y}")`;
+  tk.el.style.opacity = 1;
+  tk.at = spec.to;
+  const ms = dur(spec.ms || 1500);
+  if (!ms) { tk.el.style.offsetDistance = "100%"; return; }
+  const anim = tk.el.animate([{ offsetDistance: "0%" }, { offsetDistance: "100%" }], { duration: ms, easing: "cubic-bezier(.45,.05,.3,1)", fill: "forwards" });
+  S.camFollow = { el: tk.el, until: performance.now() + ms };
+  await anim.finished.catch(() => {});
+  tk.el.style.offsetDistance = "100%"; anim.cancel();
+}
+
+function change(spec) {
+  const tk = S.tokens.get(spec.token || "t"); if (!tk) return;
+  const t = tk.el.querySelector(".t");
+  tk.el.classList.remove("swap"); void tk.el.offsetWidth; tk.el.classList.add("swap");
+  setTimeout(() => { t.textContent = spec.label; tk.el.classList.remove("bad", "good"); if (spec.tone) tk.el.classList.add(spec.tone); }, dur(220));
+}
+
+function dropToken(id) { const tk = S.tokens.get(id || "t"); if (!tk) return; tk.el.style.opacity = 0; setTimeout(() => tk.el.remove(), dur(400)); S.tokens.delete(id || "t"); }
+
+function note(spec) {
+  const c = center(spec.at); if (!c) return;
+  const el = document.createElement("div");
+  const above = spec.pos === "above";
+  el.className = `note ${spec.tone || ""} ${above ? "above" : ""}`;
+  el.textContent = spec.text;
+  el.style.left = c.x + "px";
+  world.appendChild(el);
+  el.style.top = above ? `${c.y - 190 - el.offsetHeight}px` : `${c.y + 118}px`;
+  if (S.instant) el.classList.add("in"); else requestAnimationFrame(() => el.classList.add("in"));
+  S.notes.push({ el, at: spec.at });
+}
+function clearNotes() { S.notes.forEach(n => { n.el.classList.remove("in"); setTimeout(() => n.el.remove(), dur(400)); }); S.notes = []; }
+
+function mark(spec) {
+  const a = S.actors.get(spec.at); if (!a) return;
+  const m = a.el.querySelector(".mark");
+  m.className = `mark ${spec.icon === "ok" ? "ok" : "x"}`; m.textContent = spec.icon === "ok" ? "✓" : "✕";
+  requestAnimationFrame(() => m.classList.add("on"));
+}
+
+function tone(spec) {
+  for (const id of [].concat(spec.at)) {
+    const a = S.actors.get(id); if (!a) continue;
+    a.el.classList.remove("bad", "good"); if (spec.tone && spec.tone !== "none") a.el.classList.add(spec.tone);
+  }
+}
+
+function focus(ids) {
+  const set = new Set(ids || []);
+  world.classList.toggle("focusing", set.size > 0);
+  S.actors.forEach((a, id) => a.el.classList.toggle("focus", set.has(id)));
+  S.links.forEach(l => l.path.classList.toggle("lit", set.has(l.from) && set.has(l.to)));
+}
+
+let bigSeq = 0;
+function big(spec) {
+  const b = $("big"), seq = ++bigSeq;
+  if (!spec || S.instant) { b.classList.remove("in"); $("stage").classList.remove("has-big"); return; }   // transient: not rebuilt
+  b.className = `big ${spec.tone || ""}`;
+  b.querySelector("p").textContent = spec.text;
+  $("stage").classList.add("has-big");
+  requestAnimationFrame(() => { if (seq === bigSeq) b.classList.add("in"); });
+}
+
+function codeCard(spec) {
+  S.code?.remove(); S.code = null; $("stage").classList.remove("has-code");
+  if (!spec || S.instant) return;   // transient: not rebuilt when jumping between scenes
+  const el = document.createElement("div");
+  el.className = "codecard";
+  const start = spec.start || 1, hl = new Set(expand(spec.highlight || []));
+  el.innerHTML = `${spec.file ? `<div class="path">${esc(spec.file)}</div>` : ""}<pre>${spec.snippet.split("\n")
+    .map((l, i) => `<span class="ln${hl.has(start + i) ? " hl" : ""}" data-n="${start + i}">${esc(l) || " "}</span>`).join("")}</pre>`;
+  $("stage").appendChild(el);
+  $("stage").classList.add("has-code");
+  if (hl.size) el.classList.add("focusing");
+  requestAnimationFrame(() => { if (S.code === el) el.classList.add("in"); });
+  S.code = el;
+}
+function codeLines(lines) {
+  if (!S.code) return;
+  const set = new Set(expand(lines || []));
+  S.code.classList.toggle("focusing", set.size > 0);
+  let first = null;
+  S.code.querySelectorAll(".ln").forEach(l => { const on = set.has(+l.dataset.n); l.classList.toggle("hl", on); if (on && !first) first = l; });
+  first?.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+}
+function expand(spec) { const out = []; for (const x of spec) { if (typeof x === "string" && x.includes("-")) { const [a, b] = x.split("-").map(Number); for (let i = a; i <= b; i++) out.push(i); } else out.push(+x); } return out; }
+
+// ======================= camera =======================
+function frame(ids) {
+  const stage = $("stage"), sw = stage.clientWidth, sh = stage.clientHeight;   // the plan panel already narrows the stage
+  const codeOpen = !!S.code;
+  const availW = codeOpen ? sw * 0.48 : sw, offX = 0;
+  const base = Math.min(availW / W, sh / H);
+  const pts = [];
+  const list = ids === "all" || !ids?.length ? [...S.actors.keys()] : ids;
+  for (const id of list) { const c = center(id); if (c) pts.push(c); }
+  for (const tk of S.tokens.values()) if (tk.at && list.includes(tk.at)) { const c = center(tk.at); pts.push({ x: c.x, y: c.y - 180 }); }
+  let s = base, tx = (availW - W * base) / 2 + offX, ty = (sh - H * base) / 2;
+  if (pts.length) {
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const x1 = Math.min(...xs) - 170, x2 = Math.max(...xs) + 170, y1 = Math.min(...ys) - 200, y2 = Math.max(...ys) + 190;
+    const bw = x2 - x1, bh = y2 - y1;
+    s = Math.min(base * 1.9, availW * .92 / bw, sh * .9 / bh);
+    s = Math.max(s, base * .7);
+    tx = offX + availW / 2 - s * (x1 + bw / 2);
+    ty = sh / 2 - s * (y1 + bh / 2);
+  }
+  S.camera = { s, tx, ty }; S.camTarget = ids;
+  world.style.transition = S.instant ? "none" : "";
+  world.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+  if (S.instant) { world.getBoundingClientRect(); world.style.transition = ""; }
+}
+addEventListener("resize", () => frame(S.camTarget));
+
+// ======================= running actions =======================
+async function runAction(a, scene) {
+  if (a.enter) for (const id of [].concat(a.enter)) enter(id, actorDef(scene, id));
+  if (a.exit) for (const id of [].concat(a.exit)) exit(id);
+  if (a.link) for (const l of [].concat(a.link)) link(l);
+  if (a.unlink) for (const id of [].concat(a.unlink)) removeLink(id);
+  if (a.change) change(a.change);
+  if (a.note) for (const n of [].concat(a.note)) note(n);
+  if (a.clearNotes) clearNotes();
+  if (a.mark) for (const m of [].concat(a.mark)) mark(m);
+  if (a.tone) for (const t of [].concat(a.tone)) tone(t);
+  if ("focus" in a) focus(a.focus);
+  if ("big" in a) big(a.big ? (typeof a.big === "string" ? { text: a.big } : a.big) : null);
+  if ("code" in a) { codeCard(a.code); if (!("camera" in a)) frame(S.camTarget); }
+  if (a.lines) codeLines(a.lines);
+  if (a.drop) dropToken(a.drop === true ? "t" : a.drop);
+  if ("camera" in a) frame(a.camera);
+  if (a.send) await send(a.send);
+}
+
+async function runStepActions(step, scene) {
+  const acts = step.do || [];
+  const hasCam = acts.some(a => "camera" in a);
+  const hasBig = acts.some(a => "big" in a);
+  if (!hasBig && $("big").classList.contains("in")) big(null);
+  // automatic framing follows whatever enters or travels
+  for (const a of acts) {
+    if (a.delay) await wait(a.delay);
+    const p = runAction(a, scene);
+    if (a.enter && !hasCam) frame("all");
+    if (a.send && !hasCam) frame([a.send.from, a.send.to].filter(Boolean));
+    if (a.wait !== false && a.send) await p;
+  }
+}
+
+function resetWorld() {
+  S.actors.forEach(a => a.el.remove()); S.actors.clear();
+  S.links.forEach(l => { l.path.remove(); l.label?.remove(); }); S.links.clear();
+  S.tokens.forEach(t => t.el.remove()); S.tokens.clear();
+  S.notes.forEach(n => n.el.remove()); S.notes = [];
+  codeCard(null); big(null); focus([]);
+}
+
+// Instantly rebuild the world state up to the start of a scene
+async function rebuildUntil(k) {
+  S.instant = true;
+  resetWorld();
+  for (let i = 0; i < k; i++) {
+    const sc = S.scenes[i];
+    if (sc.clear) resetWorld();
+    for (const st of sc.steps) for (const a of st.do || []) await runAction(a, sc);
+    endScene(sc, true);
+  }
+  S.instant = false;
+}
+
+function endScene(scene, instant) {
+  clearNotesIfAny(instant); focus([]); big(null); codeCard(null);
+  for (const id of scene.dropAtEnd || []) dropToken(id);
+}
+function clearNotesIfAny(instant) { if (instant) { S.notes.forEach(n => n.el.remove()); S.notes = []; } else clearNotes(); }
+
+// ======================= voice =======================
+let voice = null;
+function pickVoice() {
+  // browser voice for the tour's language (used only when an edge-tts clip is missing)
+  const L = (S.lang || "en").toLowerCase(), base = L.split("-")[0];
+  const vs = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace("_", "-").startsWith(base));
+  const natural = (v) => /Natural|Online/i.test(v.name);
+  const region = (v) => v.lang.toLowerCase().replace("_", "-") === L;
+  voice = vs.find(v => natural(v) && region(v)) || vs.find(natural) || vs.find(region) || vs[0] || null;
+}
+if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+let current = null;   // { audio | utterance, resolve }
+function say(step) {
+  return new Promise(resolve => {
+    stopVoice();
+    const text = step.text;
+    setCaption(text);
+    const done = () => { current = null; resolve(); };
+    if (step.src) {
+      const a = new Audio(step.src); current = { audio: a, resolve: done };
+      a.onended = done; a.onerror = () => speakTTS(text, done);
+      a.play().catch(() => speakTTS(text, done));
+    } else speakTTS(text, done);
+  });
+}
+function speakTTS(text, done) {
+  if (!("speechSynthesis" in window) || !voice && speechSynthesis.getVoices().length === 0) {
+    const ms = Math.max(1800, text.split(/\s+/).length * 380);   // no voice: reading time
+    const t = setTimeout(done, ms); current = { timer: t, resolve: done, ms, started: performance.now() };
+    return;
+  }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = voice?.lang || S.lang || "en"; if (voice) u.voice = voice; u.rate = 1.02;
+  u.onend = done; u.onerror = done;
+  current = { utter: u, resolve: done };
+  speechSynthesis.speak(u);
+}
+function stopVoice() {
+  if (!current) return;
+  const c = current; current = null;
+  if (c.audio) { c.audio.onended = null; c.audio.pause(); }
+  if (c.timer) clearTimeout(c.timer);
+  if (c.utter) { c.utter.onend = null; speechSynthesis.cancel(); }
+  if ("speechSynthesis" in window && speechSynthesis.paused) speechSynthesis.resume();   // if left paused, the next utterance would stay silent
+}
+
+// ======================= playback =======================
+async function playScene(k, { rebuild = true } = {}) {
+  const run = ++S.runId;
+  stopVoice();
+  S.scene = k; S.step = 0;
+  if (rebuild) await rebuildUntil(k);
+  const sc = S.scenes[k];
+  if (!sc) { updateChrome(); return; }
+  if (sc.clear) resetWorld();
+  report();
+  markPlanSection(true);
+  updateChrome();
+  for (let i = 0; i < sc.steps.length; i++) {
+    if (run !== S.runId) return;
+    S.step = i;
+    const st = sc.steps[i];
+    const acts = runStepActions(st, sc);
+    const talk = say(st);
+    await Promise.all([acts, talk]);
+    await waitWhilePaused(run);
+    if (run !== S.runId) return;
+    await wait(st.pause ?? 350);
+  }
+  if (run !== S.runId) return;
+  endScene(sc, false);
+  await wait(700);
+  if (run !== S.runId) return;
+  nextOrWait(run);
+}
+
+function waitWhilePaused(run) {
+  return new Promise(r => { const chk = () => (!S.paused || run !== S.runId) ? r() : setTimeout(chk, 150); chk(); });
+}
+
+function nextOrWait(run) {
+  if (S.scene + 1 < S.scenes.length) { playScene(S.scene + 1, { rebuild: false }); return; }
+  S.waiting = true;
+  updateStatus();
+  const chk = () => {
+    if (run !== S.runId) return;
+    if (S.scene + 1 < S.scenes.length) { S.waiting = false; playScene(S.scene + 1, { rebuild: false }); }
+    else setTimeout(chk, 500);
+  };
+  chk();
+}
+
+function go(k) {
+  if (k < 0 || k >= S.scenes.length) return;
+  S.waiting = false;
+  if (S.paused) { S.paused = false; updateChrome(); }   // navigating resumes playback
+  playScene(k);
+}
+
+function report() { if (!window.DEMO) fetch(`position?i=${S.scene}`).catch(() => {}); }
+
+// ======================= interface =======================
+function setCaption(text, status = false) { const c = $("caption"); c.textContent = text; c.classList.toggle("status", status); }
+
+function updateStatus() {
+  if (!S.scenes.length) return setCaption("Claude is preparing the story…", true);
+  if (S.paused) return setCaption("Paused. Press Space to resume.", true);
+  if (S.waiting) {
+    if (S.done) return setCaption("The end. Go back to the chat to approve the plan or ask for changes.", true);
+    const next = S.outline?.scenes?.[S.scenes.length]?.title;
+    return setCaption(next ? `Up next: ${next}…` : "Preparing the next scene…", true);
+  }
+}
+
+function updateChrome() {
+  const total = S.done ? S.scenes.length : Math.max(S.total || 0, S.scenes.length);
+  const sc = S.scenes[S.scene];
+  const KIND = { question: "Your question · ", correction: "Change · ", detail: "In detail · ", summary: "" };
+  $("chapter").innerHTML = sc ? `<span>${S.scene + 1} / ${total}</span>${esc((KIND[sc.kind] || "") + (sc.title || ""))}` : "";
+  const track = $("track");
+  if (track.children.length !== total) track.innerHTML = Array.from({ length: total }, () => '<span class="seg"><i></i></span>').join("");
+  [...track.children].forEach((el, i) => {
+    el.classList.toggle("current", i === S.scene);
+    el.classList.toggle("pending", i >= S.scenes.length);
+    if (i !== S.scene) el.firstChild.style.transform = `scaleX(${i < S.scene ? 1 : 0})`;
+  });
+  $("toggle").setAttribute("aria-label", S.paused ? "Resume" : "Pause");
+  $("toggle-icon").innerHTML = S.paused
+    ? '<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>'
+    : '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>';
+}
+
+function tick() {
+  const bar = $("track").children[S.scene]?.firstChild, sc = S.scenes[S.scene];
+  if (bar && sc) bar.style.transform = `scaleX(${Math.min(1, (S.step + (current ? .5 : 1)) / sc.steps.length)})`;
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+function togglePause() {
+  S.paused = !S.paused;
+  if (S.paused) { if (current?.audio) current.audio.pause(); else if (current?.utter) speechSynthesis.pause(); updateStatus(); }
+  else {
+    if (current?.audio) current.audio.play(); else if (current?.utter) speechSynthesis.resume();
+    const st = S.scenes[S.scene]?.steps[S.step]; if (st) setCaption(st.text);
+  }
+  updateChrome();
+}
+
+function toggleCaptions() { captions = !captions; setPref("plan-tour-cc", captions ? "on" : "off"); applyCaptions(); }
+
+$("start").onclick = () => {
+  S.started = true; $("intro").classList.add("hidden");
+  if ("speechSynthesis" in window) pickVoice();
+  if (S.scenes.length) playScene(0); else updateStatus();
+  $("toggle").focus();
+};
+$("prev").onclick = () => go(S.scene - 1);
+$("next").onclick = () => go(S.scene + 1);
+$("replay").onclick = () => go(S.scene);
+$("toggle").onclick = togglePause;
+$("cc").onclick = toggleCaptions;
+document.addEventListener("keydown", (e) => {
+  if (!S.started) { if (e.key === "Enter") $("start").click(); return; }
+  if (e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;
+  if (e.key === "ArrowRight") go(S.scene + 1);
+  else if (e.key === "ArrowLeft") go(S.scene - 1);
+  else if (e.key === " ") { e.preventDefault(); togglePause(); }
+  else if (e.key.toLowerCase() === "r") go(S.scene);
+  else if (e.key.toLowerCase() === "c") toggleCaptions();
+  else if (e.key.toLowerCase() === "p" && !$("planbtn").classList.contains("hidden")) togglePlan();
+  else if (e.key === "Escape" && planUI.open) togglePlan(false);
+});
+
+// arrow marker
+linksSvg.innerHTML = `<defs><marker id="arrow" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
+  <path d="M2,2 L10,6 L2,10" fill="none" stroke="#6a82a3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`;
+
+// ======================= written plan =======================
+const planUI = { open: false, md: null, version: null, pausedByPanel: false };
+
+async function loadPlan(version) {
+  if (planUI.version === version && planUI.md !== null) return;
+  try {
+    const md = window.DEMO ? window.DEMO.planText : await (await fetch(`plan.md?t=${Date.now()}`, { cache: "no-store" })).text();
+    planUI.md = md; planUI.version = version;
+    const body = $("plan-body");
+    body.innerHTML = window.marked ? marked.parse(md, { gfm: true, breaks: false })
+      : `<pre>${esc(md)}</pre>`;
+    body.querySelectorAll("a[href]").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
+    markPlanSection(false);
+  } catch { $("plan-body").innerHTML = '<p class="plan-empty">Could not load the plan.</p>'; }
+}
+
+// Highlight the plan section the current scene is telling
+function markPlanSection(scroll = true) {
+  const body = $("plan-body");
+  body.querySelectorAll(".here").forEach(el => el.classList.remove("here"));
+  const ref = S.scenes[S.scene]?.plan;
+  $("plan-where").textContent = ref ? `Scene ${S.scene + 1}: ${ref}` : "";
+  if (!ref) return;
+  const norm = (t) => t.replace(/[`*_]/g, "").trim().toLowerCase();
+  const heads = [...body.querySelectorAll("h1,h2,h3,h4,h5,h6")];
+  const h = heads.find(x => norm(x.textContent) === norm(ref)) || heads.find(x => norm(x.textContent).includes(norm(ref)));
+  if (!h) return;
+  const level = +h.tagName[1];
+  h.classList.add("here");
+  for (let el = h.nextElementSibling; el && !(/^H[1-6]$/.test(el.tagName) && +el.tagName[1] <= level); el = el.nextElementSibling) el.classList.add("here");
+  if (scroll && planUI.open) h.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+}
+
+function togglePlan(force) {
+  const open = force ?? !planUI.open;
+  if (open === planUI.open) return;
+  planUI.open = open;
+  $("plan").classList.toggle("open", open);
+  $("plan").setAttribute("aria-hidden", String(!open));
+  $("planbtn").setAttribute("aria-pressed", String(open));
+  document.body.classList.toggle("plan-open", open);
+  if (open) {
+    if (S.started && !S.paused) { togglePause(); planUI.pausedByPanel = true; }   // reading and listening at once doesn't work
+    markPlanSection(true);
+    $("plan-close").focus();
+  } else {
+    if (planUI.pausedByPanel && S.paused) togglePause();
+    planUI.pausedByPanel = false;
+    $("planbtn").focus();
+  }
+  setTimeout(() => frame(S.camTarget), 480);
+}
+
+$("planbtn").onclick = () => togglePlan();
+$("plan-close").onclick = () => togglePlan(false);
+
+function syncPlan(plan) {
+  const has = !!plan || !!window.DEMO?.planText;
+  $("planbtn").classList.toggle("hidden", !has);
+  if (has) loadPlan(plan?.updated ?? "demo");
+}
+
+// ======================= data: embedded demo or server manifest =======================
+function load(m) {
+  syncPlan(m.plan);
+  if (S.tour !== m.tour) {
+    S.tour = m.tour; S.revision = m.revision ?? 0;
+    S.scenes = m.scenes || []; S.actorDefs = m.actors || {};
+    S.total = m.total; S.done = !!m.done; S.outline = m.outline; S.lang = m.lang;
+    document.documentElement.lang = m.lang || "en"; if ("speechSynthesis" in window) pickVoice();
+    if (S.started && S.scenes.length) playScene(0);
+    updateChrome(); updateStatus(); return;
+  }
+  const prevLen = S.scenes.length;
+  S.scenes = m.scenes || []; S.actorDefs = m.actors || {}; S.total = m.total; S.done = !!m.done; S.outline = m.outline;
+  if (S.revision !== (m.revision ?? 0)) {        // Claude rewound after a question or an adjustment
+    S.revision = m.revision;
+    const k = m.resumeAt ?? S.scene;
+    if (S.started) {
+      if (k < S.scenes.length) go(k);
+      else {                                       // the new scene hasn't arrived yet: wait there
+        const run = ++S.runId; stopVoice(); big(null);
+        rebuildUntil(k).then(() => { if (run !== S.runId) return; S.scene = k - 1; nextOrWait(run); });
+      }
+    }
+  } else if (S.started && prevLen === 0 && S.scenes.length) playScene(0);
+  updateChrome(); updateStatus();
+}
+
+if (window.DEMO) { load(window.DEMO); }
+else {
+  const poll = async () => {
+    try { const r = await fetch(`manifest.json?t=${Date.now()}`, { cache: "no-store" }); if (r.ok) load(await r.json()); } catch {}
+    setTimeout(poll, 1000);
+  };
+  poll();
+}
+</script>
+</body>
+</html>

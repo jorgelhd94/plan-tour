@@ -1,0 +1,185 @@
+{
+ "tour": 1,
+ "lang": "en",
+ "total": 4,
+ "done": true,
+ "planText": "# Plan: show categories to system users\n\n## Context\nWhen a **system** user (support) opens *Orders* and picks a merchant, the category list comes back empty.\n\n## Root cause\n1. `SupportScopeMiddleware` replaces the merchant in the context with **Acme Pay Inc**.\n2. The categories handler validates the merchant with `shops.Find`.\n3. `excludeHouseMerchant` always excludes Acme Pay, so validation fails.\n\n## Proposed changes\n| File | Change |\n|---|---|\n| `internal/http/middleware/support.go` | Keep the requested `merchant_id` for system users |\n| `internal/categories/handler.go` | Validate against the merchant that was picked |\n\n## Risks\n- Other endpoints may rely on the current replacement.\n\n## Verification\n- Integration test: a system user lists Lola's Store categories.\n",
+ "plan": {
+  "updated": 1,
+  "headings": [
+   "Plan: show categories to system users",
+   "Context",
+   "Root cause",
+   "Proposed changes",
+   "Risks",
+   "Verification"
+  ]
+ },
+ "outline": {
+  "case": "Ana can't see Lola's Store categories",
+  "scenes": [
+   {
+    "title": "The question"
+   },
+   {
+    "title": "The request's journey"
+   },
+   {
+    "title": "Where it gets lost"
+   },
+   {
+    "title": "Before and after"
+   }
+  ]
+ },
+ "scenes": [
+  {
+   "title": "The question",
+   "plan": "Context",
+   "css": ".win{left:800px;top:470px;width:900px;padding:0} .win .bar{display:flex;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line)} .win .bar i{width:12px;height:12px;border-radius:50%;background:var(--line)} .win .bar span{margin-left:14px;font-size:18px;color:var(--muted)} .row2{display:flex;justify-content:space-between;padding:18px 28px;font-size:22px;border-bottom:1px solid var(--line)} .empty{padding:60px 28px;text-align:center;font-size:24px}",
+   "html": "<div class='big' data-hide='2'>Why can't Ana see the categories?</div><div class='card at win' data-step='2'><div class='bar'><i></i><i></i><i></i><span>Orders · support panel</span></div><div class='row2'><b>Lola's Store</b><span class='chip' id='sel' data-step='3'>selected</span></div><div class='empty' id='empty' data-step='4'><span class='t-bad'>No categories</span></div></div>",
+   "steps": [
+    {
+     "text": "This is the story of a bug. Why can't Ana see the categories?"
+    },
+    {
+     "text": "Ana works in support, and she opens the Orders panel."
+    },
+    {
+     "text": "She picks Lola's Store to check its categories.",
+     "focus": [
+      "#sel"
+     ]
+    },
+    {
+     "text": "And the list comes back empty, even though the categories exist.",
+     "focus": [
+      "#empty"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "The request's journey",
+   "plan": "Root cause",
+   "html": "<svg class='layer'><path id='road' class='arrow' d='M300 560 C 560 360, 1040 360, 1300 560' data-step='1'/></svg><div class='box at' id='orders' style='left:240px;top:600px' data-step='1'><div class='icon' data-icon='table'></div><div class='label'>Orders</div><div class='sub'>The panel</div></div><div class='box at' id='mw' style='left:800px;top:600px' data-step='2'><div class='icon' data-icon='filter'></div><div class='label'>Middleware</div><div class='sub'>The gatekeeper</div></div><div class='box at' id='finder' style='left:1360px;top:600px' data-step='4'><div class='icon' data-icon='search'></div><div class='label'>Finder</div><div class='sub'>for merchants</div></div><div class='pill at' id='env' style='left:300px;top:450px' data-step='1'><span data-icon='envelope'></span><span class='t'>Lola's Store</span></div><div class='note bad at' id='n1' style='left:800px;top:790px' data-step='3'>Merchant swapped</div>",
+   "steps": [
+    {
+     "text": "Ana's request leaves the panel with a label: Lola's Store."
+    },
+    {
+     "text": "First it goes through the middleware, a kind of gatekeeper.",
+     "move": {
+      "sel": "#env",
+      "to": "#mw",
+      "dy": -150,
+      "ms": 1600
+     },
+     "focus": [
+      "#mw",
+      "#env"
+     ]
+    },
+    {
+     "text": "And here's the trap: the gatekeeper swaps the label.",
+     "set": [
+      {
+       "sel": "#env",
+       "text": "Acme Pay Inc",
+       "add": "bad"
+      },
+      {
+       "sel": "#mw",
+       "add": "bad"
+      }
+     ],
+     "focus": [
+      "#mw",
+      "#env",
+      "#n1"
+     ],
+     "camera": [
+      "#mw",
+      "#env",
+      "#n1"
+     ]
+    },
+    {
+     "text": "The request keeps going, saying something else.",
+     "camera": "all",
+     "focus": [],
+     "move": {
+      "sel": "#env",
+      "to": "#finder",
+      "dy": -150,
+      "ms": 1600
+     }
+    }
+   ]
+  },
+  {
+   "title": "Where it gets lost",
+   "plan": "Root cause",
+   "continue": true,
+   "html": "<div class='note bad at' id='n2' style='left:1360px;top:790px' data-step='1'>Hides Acme Pay</div>",
+   "steps": [
+    {
+     "text": "The finder has a rule: it never shows the system merchant.",
+     "focus": [
+      "#finder",
+      "#n2",
+      "#env"
+     ],
+     "set": {
+      "sel": "#finder",
+      "add": "bad"
+     }
+    },
+    {
+     "text": "So it answers that it doesn't exist, and Ana sees an empty list.",
+     "focus": [],
+     "move": {
+      "sel": "#env",
+      "to": "#orders",
+      "dy": -150,
+      "ms": 1800
+     },
+     "set": {
+      "sel": "#env",
+      "text": "Not found"
+     }
+    }
+   ]
+  },
+  {
+   "title": "Before and after",
+   "plan": "Proposed changes",
+   "css": ".col2{position:absolute;top:150px;width:620px} .col2 h3{font-size:30px;margin:0 0 18px} .step-row{display:flex;gap:14px;align-items:center;font-size:23px;color:var(--text-2);margin:14px 0}",
+   "html": "<div class='col2' style='left:120px' data-step='1'><h3 class='t-bad'>Today</h3><div class='step-row'><span class='chip'>1</span>The gatekeeper sets Acme Pay Inc</div><div class='step-row'><span class='chip'>2</span>The finder hides Acme Pay</div><div class='step-row' id='badend'><span class='chip'>3</span><span class='t-bad'>Empty list</span></div></div><div class='col2' style='left:860px' data-step='2'><h3 class='t-good'>With the plan</h3><div class='step-row'><span class='chip'>1</span>The gatekeeper keeps Lola's Store</div><div class='step-row'><span class='chip'>2</span>The finder finds it</div><div class='step-row' id='goodend'><span class='chip'>3</span><span class='t-good'>3 categories</span></div></div><div class='code at' style='left:800px;top:700px;width:1080px' data-step='3'><div class='path'>internal/http/middleware/support.go</div><pre data-start='41'>func SupportScope(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tif isSupport(r) && r.URL.Query().Get(\"merchant_id\") == \"\" {\n\t\t\tr = withShop(r, acmePayID)\n\t\t}</pre></div>",
+   "steps": [
+    {
+     "text": "Let's compare. Today the request gets lost in three steps.",
+     "focus": [
+      "#badend"
+     ]
+    },
+    {
+     "text": "With the plan, the same journey ends with Lola's three categories.",
+     "focus": [
+      "#goodend"
+     ]
+    },
+    {
+     "text": "The change is a single condition in the gatekeeper.",
+     "focus": []
+    },
+    {
+     "text": "If the request already carries a merchant, the gatekeeper keeps it. Do you like this approach?",
+     "lines": [
+      43
+     ]
+    }
+   ]
+  }
+ ]
+}
