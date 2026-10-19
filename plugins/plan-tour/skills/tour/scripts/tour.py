@@ -306,7 +306,7 @@ def auto_layout(actors: dict) -> None:
     if not free:
         return
     rows = [free] if len(free) <= 5 else [free[: (len(free) + 1) // 2], free[(len(free) + 1) // 2:]]
-    ys = [470] if len(rows) == 1 else [300, 660]
+    ys = [470] if len(rows) == 1 else [280, 680]
     for row, y in zip(rows, ys):
         n = len(row)
         for i, k in enumerate(row):

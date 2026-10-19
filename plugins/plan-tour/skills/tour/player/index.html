@@ -367,13 +367,15 @@ async function send(spec) {
   if (spec.tone) { tk.el.classList.remove("bad", "good", "flow"); tk.el.classList.add(spec.tone); }
   const from = center(spec.from || tk.at), to = center(spec.to);
   if (!to) return;
-  const lift = 146;
-  const p = from ? { x: from.x, y: from.y - lift } : { x: to.x, y: to.y - lift };
+  // stack envelopes that land on the same actor
+  const others = [...S.tokens.entries()].filter(([k, t]) => k !== id && t.at === spec.to).length;
+  const lift = 146 + others * 50;
+  const p = from ? { x: from.x, y: from.y - (tk.lift || 146) } : { x: to.x, y: to.y - lift };
   const q = { x: to.x, y: to.y - lift };
   const c = { x: (p.x + q.x) / 2, y: Math.min(p.y, q.y) - 70 };
   tk.el.style.offsetPath = `path("M${p.x},${p.y} Q${c.x},${c.y} ${q.x},${q.y}")`;
   tk.el.style.opacity = 1;
-  tk.at = spec.to;
+  tk.at = spec.to; tk.lift = lift;
   const ms = dur(spec.ms || 1500);
   if (!ms) { tk.el.style.offsetDistance = "100%"; return; }
   const anim = tk.el.animate([{ offsetDistance: "0%" }, { offsetDistance: "100%" }], { duration: ms, easing: "cubic-bezier(.45,.05,.3,1)", fill: "forwards" });
@@ -479,6 +481,26 @@ function frame(ids) {
     s = Math.max(s, base * .7);
     tx = offX + availW / 2 - s * (x1 + bw / 2);
     ty = sh / 2 - s * (y1 + bh / 2);
+    // never leave an actor half inside the frame: widen the frame to include it whole
+    let box = { x1, y1, x2, y2 };
+    for (let pass = 0; pass < 3; pass++) {
+      let grow = false;
+      for (const a of S.actors.values()) {
+        const ax1 = a.def.x - 110, ax2 = a.def.x + 110, ay1 = a.def.y - 100, ay2 = a.def.y + 115;
+        const sx1 = tx + s * ax1, sx2 = tx + s * ax2, sy1 = ty + s * ay1, sy2 = ty + s * ay2;
+        const inside = sx1 >= 0 && sx2 <= availW && sy1 >= 0 && sy2 <= sh;
+        const outside = sx2 <= 0 || sx1 >= availW || sy2 <= 0 || sy1 >= sh;
+        if (!inside && !outside) {
+          box = { x1: Math.min(box.x1, ax1 - 40), y1: Math.min(box.y1, ay1 - 40), x2: Math.max(box.x2, ax2 + 40), y2: Math.max(box.y2, ay2 + 40) };
+          grow = true;
+        }
+      }
+      if (!grow) break;
+      const w = box.x2 - box.x1, h = box.y2 - box.y1;
+      s = Math.max(base * .7, Math.min(s, availW * .96 / w, sh * .96 / h));
+      tx = offX + availW / 2 - s * (box.x1 + w / 2);
+      ty = sh / 2 - s * (box.y1 + h / 2);
+    }
   }
   S.camera = { s, tx, ty }; S.camTarget = ids;
   world.style.transition = S.instant ? "none" : "";
