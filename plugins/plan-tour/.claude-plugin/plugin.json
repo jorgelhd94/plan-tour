@@ -1,6 +1,6 @@
 {
   "name": "plan-tour",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Turns a Claude Code plan into an animated, narrated story in your browser that you can interrupt and steer from the chat.",
   "author": {
     "name": "jorgelhd94",

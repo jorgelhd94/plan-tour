@@ -11,18 +11,9 @@
   @font-face { font-family: "Plex Mono"; font-weight: 400; src: url(fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2"); font-display: swap; }
   @font-face { font-family: "Plex Mono"; font-weight: 500; src: url(fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2"); font-display: swap; }
   :root {
-    --bg: #0f1726;
-    --floor-dot: rgba(150, 175, 210, .09);
-    --card: #19253a;
-    --card-2: #213049;
-    --line: #34465f;
-    --text: #edf2f8;
-    --text-2: #b9c5d6;
-    --muted: #7d8ca3;
-    --flow: #6cc4de;
-    --bad: #ff7d6e;
-    --good: #5fd39a;
-    --warn: #f3c15b;
+    --bg: #0f1726; --card: #19253a; --card-2: #213049; --line: #34465f;
+    --text: #edf2f8; --text-2: #b9c5d6; --muted: #7d8ca3;
+    --flow: #6cc4de; --bad: #ff7d6e; --good: #5fd39a; --warn: #f3c15b;
     --sans: "Plex Sans", "Segoe UI", system-ui, sans-serif;
     --mono: "Plex Mono", Consolas, "Cascadia Mono", monospace;
     --ease: cubic-bezier(.2, .75, .2, 1);
@@ -33,7 +24,7 @@
   body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; }
   :focus-visible { outline: 2px solid var(--flow); outline-offset: 3px; border-radius: 6px; }
 
-  /* ---------- minimal header ---------- */
+  /* ---------- header ---------- */
   header { display: flex; align-items: center; gap: 20px; padding: 20px clamp(20px, 3vw, 48px) 0; z-index: 3; }
   .chapter { font-size: 15px; color: var(--text-2); font-weight: 500; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chapter span { color: var(--muted); font-weight: 400; margin-right: 10px; font-variant-numeric: tabular-nums; }
@@ -45,96 +36,11 @@
 
   /* ---------- stage ---------- */
   #stage { position: relative; overflow: hidden; min-height: 0;
-    background-image: radial-gradient(var(--floor-dot) 1.2px, transparent 1.3px); background-size: 28px 28px; }
-  #world { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0;
-    transition: transform 1.1s var(--ease); }
-  #world.dimmed > :not(.keep-lit) { opacity: .18; transition: opacity .5s; }
-  svg.links { position: absolute; inset: 0; width: 1600px; height: 900px; overflow: visible; pointer-events: none; }
-  svg.links path { fill: none; stroke: #4e6584; stroke-width: 3; stroke-linecap: round; transition: stroke .4s, opacity .5s; }
-  svg.links path.flow { stroke: var(--flow); }
-  svg.links path.bad { stroke: var(--bad); }
-  svg.links path.good { stroke: var(--good); }
+    background-image: radial-gradient(rgba(150, 175, 210, .09) 1.2px, transparent 1.3px); background-size: 28px 28px; }
+  #host { position: absolute; inset: 0; }
+  #stage.leaving #host { opacity: 0; transition: opacity .25s; }
 
-  .actor { position: absolute; width: 190px; transform: translate(-50%, -50%) scale(.6); opacity: 0;
-    display: flex; flex-direction: column; align-items: center; text-align: center;
-    transition: transform .6s var(--ease), opacity .45s, filter .4s; }
-  .actor.in { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  .actor .badge { width: 104px; height: 104px; border-radius: 28px; background: var(--card); display: grid; place-items: center;
-    box-shadow: inset 0 0 0 2px var(--line); position: relative; transition: box-shadow .4s, background .4s; }
-  .actor.k-person .badge { border-radius: 50%; }
-  .actor .badge svg { width: 50px; height: 50px; stroke: var(--text-2); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: stroke .4s; }
-  .actor .name { margin-top: 14px; font-size: 24px; font-weight: 600; letter-spacing: -.01em; line-height: 1.15; }
-  .actor .sub { margin-top: 4px; font-size: 17px; color: var(--muted); line-height: 1.25; }
-  .actor.focus .badge { box-shadow: inset 0 0 0 3px var(--flow), 0 0 0 10px rgba(108, 196, 222, .1); background: var(--card-2); }
-  .actor.focus .badge svg { stroke: var(--flow); }
-  .actor.bad .badge { box-shadow: inset 0 0 0 3px var(--bad), 0 0 0 10px rgba(255, 125, 110, .12); }
-  .actor.bad .badge svg { stroke: var(--bad); }
-  .actor.good .badge { box-shadow: inset 0 0 0 3px var(--good), 0 0 0 10px rgba(95, 211, 154, .12); }
-  .actor.good .badge svg { stroke: var(--good); }
-  #world.focusing .actor.in:not(.focus):not(.bad):not(.good) { opacity: .28; }
-  #world.focusing svg.links path:not(.lit) { opacity: .25; }
-  .mark { position: absolute; right: -10px; top: -10px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-    font-size: 22px; font-weight: 700; color: var(--bg); transform: scale(0); transition: transform .45s cubic-bezier(.3, 1.6, .5, 1); }
-  .mark.on { transform: scale(1); }
-  .mark.x { background: var(--bad); }
-  .mark.ok { background: var(--good); }
-
-  .linklabel { position: absolute; transform: translate(-50%, -50%); font-size: 16px; color: var(--muted); background: var(--bg);
-    padding: 2px 10px; border-radius: 999px; opacity: 0; transition: opacity .4s; white-space: nowrap; }
-  .linklabel.in { opacity: 1; }
-
-  .token { position: absolute; left: 0; top: 0; offset-rotate: 0deg; offset-anchor: 50% 50%;
-    display: flex; align-items: center; gap: 9px; padding: 9px 16px 9px 12px; border-radius: 12px;
-    background: #22344f; box-shadow: inset 0 0 0 2px var(--flow), 0 10px 30px rgba(0, 0, 0, .35);
-    font-size: 18px; font-weight: 500; white-space: nowrap; transition: box-shadow .35s, background .35s, opacity .4s; }
-  .token svg { width: 22px; height: 22px; stroke: var(--flow); fill: none; stroke-width: 1.8; flex: none; transition: stroke .35s; }
-  .token.bad { box-shadow: inset 0 0 0 2px var(--bad), 0 10px 30px rgba(0, 0, 0, .35); background: #3a2630; }
-  .token.bad svg { stroke: var(--bad); }
-  .token.good { box-shadow: inset 0 0 0 2px var(--good), 0 10px 30px rgba(0, 0, 0, .35); background: #1f3a33; }
-  .token.good svg { stroke: var(--good); }
-  .token .t { display: inline-block; }
-  .token.swap .t { animation: swap .6s var(--ease); }
-  @keyframes swap { 0% { opacity: 1; } 35% { opacity: 0; transform: translateY(-8px); } 65% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
-  .token.pulse { animation: pulse-t .7s ease 2; }
-  @keyframes pulse-t { 50% { transform: scale(1.12); } }
-
-  .note { position: absolute; transform: translate(-50%, 0) translateY(10px); opacity: 0; max-width: 300px; width: max-content;
-    font-size: 19px; line-height: 1.3; padding: 11px 16px; border-radius: 12px; background: var(--card-2); color: var(--text);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, .3); transition: opacity .4s, transform .5s var(--ease); text-align: center; }
-  .note.in { opacity: 1; transform: translate(-50%, 0); }
-  .note::before { content: ""; position: absolute; left: 50%; top: -7px; width: 14px; height: 14px; background: inherit;
-    transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
-  .note.above::before { top: auto; bottom: -7px; }
-  .note.bad { background: #4a2a30; color: #ffd9d3; }
-  .note.good { background: #1f4337; color: #d4f6e5; }
-  .note.flow { background: #1f3b4c; color: #d9f2fa; }
-
-  /* big statement: the key moment, full screen */
-  .big { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 8vw; pointer-events: none; z-index: 2;
-    opacity: 0; transition: opacity .5s; }
-  .big.in { opacity: 1; }
-  .big p { margin: 0; font-size: clamp(36px, 4.6vw, 76px); line-height: 1.1; letter-spacing: -.025em; font-weight: 600;
-    text-align: center; max-width: 20ch; text-wrap: balance; transform: translateY(14px); transition: transform .7s var(--ease); }
-  .big.in p { transform: none; }
-  .big.bad p { color: #ffb4a9; }
-  .big.good p { color: #a8ecc8; }
-  #stage.has-big #world { opacity: .12; transition: opacity .5s, transform 1.1s var(--ease); }
-
-  /* code card sliding in from the right */
-  .codecard { position: absolute; right: clamp(16px, 2.5vw, 40px); top: 50%; width: min(46vw, 760px); max-height: 80%;
-    transform: translate(30px, -50%); opacity: 0; transition: transform .6s var(--ease), opacity .45s; z-index: 2;
-    background: #142034; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line), 0 24px 60px rgba(0, 0, 0, .45);
-    display: flex; flex-direction: column; overflow: hidden; }
-  .codecard.in { transform: translate(0, -50%); opacity: 1; }
-  .codecard .path { padding: 12px 18px; font-family: var(--mono); font-size: 14px; color: var(--muted); border-bottom: 1px solid var(--line); }
-  .codecard pre { margin: 0; padding: 14px 0; overflow: auto; font-family: var(--mono); font-size: clamp(13px, 1vw, 17px); line-height: 1.6; tab-size: 4; }
-  .codecard .ln { display: block; white-space: pre; padding-right: 18px; color: var(--text-2); transition: opacity .4s, background .4s; }
-  .codecard .ln::before { content: attr(data-n); display: inline-block; width: 4em; padding-right: 1.2em; text-align: right; color: #4c5d77; }
-  .codecard.focusing .ln:not(.hl) { opacity: .35; }
-  .codecard .ln.hl { background: rgba(108, 196, 222, .12); box-shadow: inset 3px 0 var(--flow); color: var(--text); }
-  #stage.has-code #world { transform-origin: 0 0; }
-
-  /* ---------- footer: video-style captions ---------- */
+  /* ---------- footer ---------- */
   footer { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; padding: 14px clamp(20px, 3vw, 48px) 22px; z-index: 3; }
   .caption { grid-column: 2; margin: 0; max-width: min(1000px, 70vw); text-align: center; font-size: clamp(18px, 1.5vw, 25px); line-height: 1.4;
     color: var(--text); min-height: 2.8em; display: flex; align-items: center; justify-content: center; text-wrap: balance; }
@@ -161,8 +67,7 @@
     color: var(--text-2); cursor: pointer; display: grid; place-items: center; }
   .plan-head button:hover { background: var(--card); color: var(--text); }
   .plan-body { overflow: auto; padding: 8px 32px 64px; font-size: 16.5px; line-height: 1.65; color: var(--text-2); }
-  .plan-body h1, .plan-body h2, .plan-body h3, .plan-body h4 { color: var(--text); line-height: 1.25; letter-spacing: -.01em;
-    margin: 1.6em 0 .5em; scroll-margin-top: 16px; }
+  .plan-body h1, .plan-body h2, .plan-body h3, .plan-body h4 { color: var(--text); line-height: 1.25; letter-spacing: -.01em; margin: 1.6em 0 .5em; scroll-margin-top: 16px; }
   .plan-body h1 { font-size: 28px; } .plan-body h2 { font-size: 22px; } .plan-body h3 { font-size: 18px; } .plan-body h4 { font-size: 16px; }
   .plan-body p, .plan-body ul, .plan-body ol, .plan-body table, .plan-body pre, .plan-body blockquote { margin: 0 0 1em; }
   .plan-body ul, .plan-body ol { padding-left: 1.4em; }
@@ -182,9 +87,7 @@
   .plan-body h1.here, .plan-body h2.here, .plan-body h3.here, .plan-body h4.here { color: var(--flow); }
   .plan-empty { color: var(--muted); padding: 24px 0; }
   body.plan-open #stage, body.plan-open footer, body.plan-open header { margin-right: min(620px, 46vw); }
-  footer, header { transition: margin .45s var(--ease); }
-  #stage { transition: margin .45s var(--ease); }
-  @media (max-width: 800px) { .plan { width: 100%; } body.plan-open #stage, body.plan-open footer, body.plan-open header { margin-right: 0; } }
+  #stage, footer, header { transition: margin .45s var(--ease); }
 
   .intro { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: rgba(10, 16, 28, .88); backdrop-filter: blur(6px); }
   .intro-card { width: min(520px, calc(100% - 32px)); padding: 40px; border-radius: 18px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
@@ -193,14 +96,128 @@
   .intro-card button { font: 600 17px var(--sans); padding: 14px 26px; border-radius: 12px; border: 0; cursor: pointer; background: var(--flow); color: #06222c; }
   .hidden { display: none !important; }
 
+  /* ---------- review mode (contact sheet) ---------- */
+  body.review { display: block; height: auto; overflow: auto; background: #0b111d; }
+  body.review header, body.review footer, body.review #stage, body.review .intro, body.review .plan { display: none !important; }
+  #sheet { display: grid; grid-template-columns: repeat(2, 800px); gap: 18px; padding: 18px; }
+  #sheet figure { margin: 0; }
+  #sheet .frame { position: relative; width: 800px; height: 450px; overflow: hidden; background: var(--bg); border-radius: 8px;
+    background-image: radial-gradient(rgba(150, 175, 210, .09) 1.2px, transparent 1.3px); background-size: 14px 14px; }
+  #sheet figcaption { font-size: 15px; color: var(--text-2); padding: 8px 2px 0; line-height: 1.35; }
+  #sheet figcaption b { color: var(--flow); margin-right: 6px; }
+
   @media (max-width: 800px) {
     footer { grid-template-columns: 1fr; }
     .caption, .controls { grid-column: 1; justify-self: center; max-width: 100%; }
-    .codecard { width: calc(100% - 32px); }
+    .plan { width: 100%; } body.plan-open #stage, body.plan-open footer, body.plan-open header { margin-right: 0; }
   }
-  @media (prefers-reduced-motion: reduce) {
-    #world, .actor, .note, .codecard, .big p { transition: none !important; }
-  }
+</style>
+
+<!-- Scene kit: injected into every scene's shadow root. Scenes may use it or ignore it. -->
+<style id="kit" media="not all">
+  :host { all: initial; }
+  * { box-sizing: border-box; }
+  .canvas { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0;
+    transition: transform 1.1s cubic-bezier(.2, .75, .2, 1); font-family: "Plex Sans", "Segoe UI", system-ui, sans-serif; color: #edf2f8;
+    --bg: #0f1726; --card: #19253a; --card-2: #213049; --line: #34465f; --line-2: #4e6584;
+    --text: #edf2f8; --text-2: #b9c5d6; --muted: #7d8ca3;
+    --flow: #6cc4de; --bad: #ff7d6e; --good: #5fd39a; --warn: #f3c15b;
+    --mono: "Plex Mono", Consolas, "Cascadia Mono", monospace; }
+  .scene { position: absolute; inset: 0; }
+  .scene > svg.layer, svg.layer { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; overflow: visible; pointer-events: none; }
+
+  /* positioning: put the element's center at (left, top) */
+  .at { position: absolute; transform: translate(-50%, -50%); }
+
+  /* building blocks */
+  .box { display: flex; flex-direction: column; align-items: center; text-align: center; width: 220px; }
+  .box .icon { width: 104px; height: 104px; border-radius: 28px; background: var(--card); display: grid; place-items: center;
+    box-shadow: inset 0 0 0 2px var(--line); transition: box-shadow .4s, background .4s; }
+  .box.round .icon { border-radius: 50%; }
+  .box .icon svg { width: 50px; height: 50px; stroke: var(--text-2); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: stroke .4s; }
+  .box .label { margin-top: 14px; font-size: 26px; font-weight: 600; letter-spacing: -.01em; line-height: 1.15; }
+  .box .sub { margin-top: 4px; font-size: 18px; color: var(--muted); line-height: 1.25; }
+  .card { background: var(--card); border-radius: 18px; padding: 22px 26px; box-shadow: inset 0 0 0 1px var(--line); }
+  .card h3 { margin: 0 0 10px; font-size: 26px; font-weight: 600; }
+  .card p { margin: 0; font-size: 21px; line-height: 1.4; color: var(--text-2); }
+  .pill { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px 10px 14px; border-radius: 12px; background: #22344f; white-space: nowrap;
+    box-shadow: inset 0 0 0 2px var(--flow), 0 10px 30px rgba(0, 0, 0, .35); font-size: 20px; font-weight: 500; transition: box-shadow .35s, background .35s; }
+  .pill svg { width: 22px; height: 22px; stroke: var(--flow); fill: none; stroke-width: 1.8; flex: none; }
+  .note { font-size: 20px; line-height: 1.3; padding: 12px 18px; border-radius: 12px; background: var(--card-2); max-width: 340px; text-align: center;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .3); }
+  .chip { display: inline-block; font-size: 17px; padding: 5px 12px; border-radius: 999px; background: var(--card-2); color: var(--text-2); }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 17px; padding: 3px 9px; border-radius: 6px; background: #1c2a41; color: #d6e2f0; }
+  .big { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 160px; text-align: center;
+    font-size: 76px; line-height: 1.1; letter-spacing: -.025em; font-weight: 600; text-wrap: balance; }
+  .title { font-size: 44px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
+  .text { font-size: 24px; line-height: 1.45; color: var(--text-2); }
+  .muted { color: var(--muted); }
+  .t-flow { color: var(--flow); } .t-bad { color: var(--bad); } .t-good { color: var(--good); } .t-warn { color: var(--warn); }
+  .row { display: flex; gap: 24px; align-items: center; } .col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* tones */
+  .flow .icon, .icon.flow { box-shadow: inset 0 0 0 3px var(--flow), 0 0 0 10px rgba(108,196,222,.1); }
+  .flow .icon svg { stroke: var(--flow); }
+  .bad .icon { box-shadow: inset 0 0 0 3px var(--bad), 0 0 0 10px rgba(255,125,110,.12); } .bad .icon svg { stroke: var(--bad); }
+  .good .icon { box-shadow: inset 0 0 0 3px var(--good), 0 0 0 10px rgba(95,211,154,.12); } .good .icon svg { stroke: var(--good); }
+  .pill.bad { box-shadow: inset 0 0 0 2px var(--bad), 0 10px 30px rgba(0,0,0,.35); background: #3a2630; } .pill.bad svg { stroke: var(--bad); }
+  .pill.good { box-shadow: inset 0 0 0 2px var(--good), 0 10px 30px rgba(0,0,0,.35); background: #1f3a33; } .pill.good svg { stroke: var(--good); }
+  .note.bad, .card.bad { background: #4a2a30; color: #ffd9d3; } .note.good, .card.good { background: #1f4337; color: #d4f6e5; }
+  .note.flow, .card.flow { background: #1f3b4c; color: #d9f2fa; }
+  .card.bad p, .card.good p, .card.flow p { color: inherit; opacity: .9; }
+
+  /* SVG */
+  .arrow { fill: none; stroke: var(--line-2); stroke-width: 3; stroke-linecap: round; marker-end: url(#ah); transition: stroke .4s, opacity .4s; }
+  .arrow.flow { stroke: var(--flow); } .arrow.bad { stroke: var(--bad); } .arrow.good { stroke: var(--good); }
+  .arrow.dashed { stroke-dasharray: 8 9; }
+  svg text { font-family: "Plex Sans", "Segoe UI", sans-serif; fill: var(--text-2); font-size: 18px; }
+
+  /* code */
+  .code { background: #142034; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line), 0 24px 60px rgba(0,0,0,.45); overflow: hidden; }
+  .code .path { padding: 12px 18px; font-family: var(--mono); font-size: 16px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .code pre { margin: 0; padding: 14px 0; font-family: var(--mono); font-size: 19px; line-height: 1.6; tab-size: 4; overflow: hidden; }
+  .code .ln { display: block; white-space: pre; padding-right: 18px; color: var(--text-2); transition: opacity .4s, background .4s; }
+  .code .ln::before { content: attr(data-n); display: inline-block; width: 4em; padding-right: 1.2em; text-align: right; color: #4c5d77; }
+  .code .ln.hl { background: rgba(108,196,222,.12); box-shadow: inset 3px 0 var(--flow); color: var(--text); }
+  .code.focusing .ln:not(.hl) { opacity: .35; }
+
+  /* focus: everything else dims */
+  .dimmed { opacity: .22 !important; transition: opacity .5s; }
+  .canvas :is([data-el], .box, .card, .pill, .note, .chip, .tag, .arrow, .code, div, span, svg *) { transition: opacity .5s; }
+  .focus:is(.chip, .pill, .note, .tag, [data-el]):not(.box):not(.card):not(.code):not(svg *) { outline: 3px solid var(--flow); outline-offset: 5px; border-radius: 12px; }
+  .focus:is(.card, .code) { box-shadow: inset 0 0 0 2px var(--flow), 0 0 0 8px rgba(108,196,222,.12); }
+  .focus.t-bad, .t-bad .focus, .focus.bad { outline-color: var(--bad) !important; }
+  .focus.t-good, .t-good .focus, .focus.good { outline-color: var(--good) !important; }
+  .box.focus.bad .icon, .focus.bad .icon { box-shadow: inset 0 0 0 3px var(--bad), 0 0 0 10px rgba(255,125,110,.14); } .box.focus.bad .icon svg { stroke: var(--bad); }
+  .box.focus.good .icon, .focus.good .icon { box-shadow: inset 0 0 0 3px var(--good), 0 0 0 10px rgba(95,211,154,.14); } .box.focus.good .icon svg { stroke: var(--good); }
+  .focus.box .icon, .focus .icon { box-shadow: inset 0 0 0 3px var(--flow), 0 0 0 10px rgba(108,196,222,.12); background: var(--card-2); }
+  .focus.box .icon svg { stroke: var(--flow); }
+  .focus.arrow { stroke: var(--flow); }
+
+  /* reveal animations (data-step / data-anim) */
+  [data-pre] { opacity: 0 !important; visibility: hidden; }
+  .in-fade { animation: k-fade .5s ease both; }
+  .in-up { animation: k-up .6s cubic-bezier(.2,.75,.2,1) both; }
+  .in-down { animation: k-down .6s cubic-bezier(.2,.75,.2,1) both; }
+  .in-left { animation: k-left .6s cubic-bezier(.2,.75,.2,1) both; }
+  .in-right { animation: k-right .6s cubic-bezier(.2,.75,.2,1) both; }
+  .in-pop { animation: k-pop .55s cubic-bezier(.3,1.5,.5,1) both; }
+  .in-grow { animation: k-grow .7s cubic-bezier(.2,.75,.2,1) both; transform-origin: left center; transform-box: fill-box; }
+  .in-draw { animation: k-draw .8s cubic-bezier(.2,.75,.2,1) both; }
+  .out { animation: k-out .35s ease both; }
+  .swap { animation: k-swap .6s cubic-bezier(.2,.75,.2,1); }
+  @keyframes k-fade { from { opacity: 0; } }
+  @keyframes k-up { from { opacity: 0; translate: 0 26px; } }
+  @keyframes k-down { from { opacity: 0; translate: 0 -26px; } }
+  @keyframes k-left { from { opacity: 0; translate: 40px 0; } }
+  @keyframes k-right { from { opacity: 0; translate: -40px 0; } }
+  @keyframes k-pop { from { opacity: 0; scale: .6; } }
+  @keyframes k-grow { from { scale: 0 1; } }
+  @keyframes k-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes k-out { to { opacity: 0; } }
+  @keyframes k-swap { 0% { opacity: 1; } 35% { opacity: 0; translate: 0 -8px; } 65% { opacity: 0; translate: 0 8px; } 100% { opacity: 1; translate: 0 0; } }
+  .static * { animation: none !important; transition: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: .01s !important; transition: none !important; } }
 </style>
 </head>
 <body>
@@ -209,10 +226,7 @@
   <div class="track" id="track" aria-hidden="true"></div>
 </header>
 
-<div id="stage">
-  <div id="world"><svg class="links" id="links" viewBox="0 0 1600 900"></svg></div>
-  <div class="big" id="big"><p></p></div>
-</div>
+<div id="stage"><div id="host"></div></div>
 
 <footer>
   <p class="caption status" id="caption" aria-live="polite"></p>
@@ -235,18 +249,23 @@
 <div class="intro" id="intro">
   <div class="intro-card" role="dialog" aria-labelledby="intro-title">
     <h2 id="intro-title">Plan tour</h2>
-    <p id="intro-text">Claude walks you through it step by step, like a story. To ask something or correct it, write in the chat.</p>
+    <p>Claude walks you through it step by step, like a story. To ask something or correct it, write in the chat.</p>
     <button id="start">Start</button>
   </div>
 </div>
 
+<div id="sheet" class="hidden"></div>
+<pre id="lint" class="hidden"></pre>
+
 <script src="marked.umd.js"></script>
 <script>/*DATA*/</script>
 <script>
-// ======================= icons (simple strokes) =======================
+// ======================= icons =======================
 const ICONS = {
   person: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',
+  people: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/><circle cx="17" cy="9" r="2.8"/><path d="M15.5 13.7c3.4-.6 6 1.9 6 5.3"/>',
   screen: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
   table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 10v10"/>',
   server: '<rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 6.5h.01M8 17.5h.01"/>',
   filter: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
@@ -255,407 +274,399 @@ const ICONS = {
   db: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>',
   store: '<path d="M3 9l2-5h14l2 5"/><path d="M4 9v11h16V9"/><path d="M3 9h18M9 20v-6h6v6"/>',
   cloud: '<path d="M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8z"/>',
   box: '<path d="M21 8l-9-5-9 5 9 5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
   envelope: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
-  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  bell: '<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  queue: '<rect x="3" y="6" width="5" height="12" rx="1.5"/><rect x="9.5" y="6" width="5" height="12" rx="1.5"/><rect x="16" y="6" width="5" height="12" rx="1.5"/>',
+  money: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.8"/><path d="M6 9.5v5M18 9.5v5"/>',
+  card: '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6 15h4"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  doc: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
+  code: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/>',
+  x: '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>',
+  warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
 };
+const iconSvg = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ICONS.box}</svg>`;
 
 // ======================= state =======================
 const $ = (id) => document.getElementById(id);
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const W = 1600, H = 900;
+const params = new URLSearchParams(location.search);
+const REVIEW = params.has("review");
 const S = {
-  scenes: [], tour: null, revision: 0, done: false, total: 0, outline: null,
-  scene: 0, step: 0, started: false, paused: false, playing: false,
-  actors: new Map(), links: new Map(), tokens: new Map(), notes: [], code: null,
-  camera: { s: 1, tx: 0, ty: 0 }, camTarget: null, runId: 0,
+  scenes: [], tour: null, revision: 0, done: false, total: 0, outline: null, lang: "en",
+  scene: 0, step: 0, started: false, paused: false, waiting: false, runId: 0,
+  view: null,          // live view: { root, canvas, fit, cam }
 };
 
-// ======================= preferences =======================
 function pref(k, f) { try { return localStorage.getItem(k) ?? f; } catch { return f; } }
 function setPref(k, v) { try { localStorage.setItem(k, v); } catch {} }
 let captions = pref("plan-tour-cc", "on") === "on";
 function applyCaptions() { document.body.classList.toggle("no-captions", !captions); $("cc").setAttribute("aria-pressed", String(captions)); }
 applyCaptions();
 
-// ======================= world: actors, links, envelopes, notes =======================
-const world = $("world"), linksSvg = $("links");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const dur = (ms) => reduceMotion || S.instant ? 0 : ms;
-const wait = (ms) => new Promise(r => setTimeout(r, dur(ms)));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const asList = (v) => v == null ? [] : Array.isArray(v) ? v : [v];
+const KIT = document.getElementById("kit").textContent;
+const ARROW_DEFS = `<svg width="0" height="0" style="position:absolute"><defs>
+  <marker id="ah" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2,2 L10,6 L2,10" fill="none" stroke="context-stroke" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs></svg>`;
 
-function actorDef(scene, id) { return scene.actors?.[id] || S.actorDefs?.[id]; }
-
-function enter(id, def) {
-  if (S.actors.has(id)) { const a = S.actors.get(id); a.el.classList.add("in"); return; }
-  if (!def) { console.warn("actor sin definir", id); return; }
-  const el = document.createElement("div");
-  el.className = `actor k-${def.icon || "box"}`;
-  el.style.left = def.x + "px"; el.style.top = def.y + "px";
-  el.innerHTML = `<div class="badge"><svg viewBox="0 0 24 24">${ICONS[def.icon] || ICONS.box}</svg><span class="mark"></span></div>
-    <div class="name">${esc(def.label)}</div>${def.sub ? `<div class="sub">${esc(def.sub)}</div>` : ""}`;
-  world.appendChild(el);
-  S.actors.set(id, { el, def });
-  if (S.instant) el.classList.add("in"); else requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("in")));
+// ======================= building a view (a shadow-rooted 1600x900 canvas) =======================
+function createView(host, { static: isStatic = false } = {}) {
+  host.innerHTML = "";
+  const shell = document.createElement("div");
+  shell.style.cssText = "position:absolute;inset:0;";
+  host.appendChild(shell);
+  const root = shell.attachShadow({ mode: "open" });
+  root.innerHTML = `<style>${KIT}</style><style class="scene-css"></style>${ARROW_DEFS}<div class="canvas${isStatic ? " static" : ""}"></div>`;
+  const view = { host, shell, root, canvas: root.querySelector(".canvas"), css: root.querySelector(".scene-css"), cam: null, isStatic };
+  fitView(view);
+  return view;
 }
 
-function exit(id) {
-  const a = S.actors.get(id); if (!a) return;
-  a.el.classList.remove("in");
-  setTimeout(() => a.el.remove(), dur(500));
-  S.actors.delete(id);
-  for (const [lid, l] of S.links) if (l.from === id || l.to === id) removeLink(lid);
+function fitView(view) {
+  const w = view.host.clientWidth, h = view.host.clientHeight;
+  view.fit = { s: Math.min(w / W, h / H), w, h };
+  applyCamera(view, view.cam, true);
 }
 
-function center(id) { const a = S.actors.get(id); return a ? { x: a.def.x, y: a.def.y } : null; }
+// Expand helpers inside authored markup: data-icon, code blocks
+function hydrate(el) {
+  el.querySelectorAll("[data-icon]").forEach(n => {
+    if (!n.querySelector("svg")) n.insertAdjacentHTML("afterbegin", iconSvg(n.dataset.icon));
+  });
+  el.querySelectorAll("pre[data-start], pre.lines").forEach(pre => {
+    if (pre.dataset.hydrated) return;
+    const start = +(pre.dataset.start || 1), hl = new Set(expandLines((pre.dataset.hl || "").split(",").filter(Boolean)));
+    const lines = pre.textContent.replace(/^\n/, "").replace(/\s+$/, "").split("\n");
+    pre.innerHTML = lines.map((l, i) => `<span class="ln${hl.has(start + i) ? " hl" : ""}" data-n="${start + i}">${esc(l) || " "}</span>`).join("");
+    pre.dataset.hydrated = "1";
+  });
+  el.querySelectorAll("path.arrow, line.arrow, polyline.arrow").forEach(p => p.setAttribute("pathLength", p.getAttribute("pathLength") || "1"));
+}
+function expandLines(spec) { const out = []; for (const x of spec) { const s = String(x).trim(); if (s.includes("-")) { const [a, b] = s.split("-").map(Number); for (let i = a; i <= b; i++) out.push(i); } else if (s) out.push(+s); } return out; }
 
-function curve(p, q, bend = 0.12) {
-  const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, dx = q.x - p.x, dy = q.y - p.y;
-  return { c: { x: mx - dy * bend, y: my + dx * bend } };
+function sceneChain(k) {
+  // a scene with "continue" builds on the previous one's final state
+  let first = k;
+  while (first > 0 && S.scenes[first]?.continue) first--;
+  return { first, list: S.scenes.slice(first, k + 1) };
 }
 
-function trim(p, q, r1, r2) {
-  const dx = q.x - p.x, dy = q.y - p.y, L = Math.hypot(dx, dy) || 1;
-  return [{ x: p.x + dx / L * r1, y: p.y + dy / L * r1 }, { x: q.x - dx / L * r2, y: q.y - dy / L * r2 }];
+function mountScene(view, scene, index) {
+  const div = document.createElement("div");
+  div.className = "scene"; div.dataset.scene = index;
+  div.innerHTML = scene.html || "";
+  hydrate(div);
+  view.canvas.appendChild(div);
+  view.css.textContent += `\n${scene.css || ""}`;
+  // elements bound to a step start hidden
+  div.querySelectorAll("[data-step]").forEach(n => n.setAttribute("data-pre", ""));
+  return div;
 }
 
-function link(spec) {
-  const id = spec.id || `${spec.from}>${spec.to}`;
-  if (S.links.has(id)) { setLinkTone(id, spec.tone); return; }
-  const p0 = center(spec.from), q0 = center(spec.to);
-  if (!p0 || !q0) return;
-  const [p, q] = trim({ x: p0.x, y: p0.y - 20 }, { x: q0.x, y: q0.y - 20 }, 82, 92);
-  const { c } = curve(p, q, spec.bend ?? 0.08);
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", `M${p.x},${p.y} Q${c.x},${c.y} ${q.x},${q.y}`);
-  path.setAttribute("marker-end", "url(#arrow)");
-  if (spec.tone) path.classList.add(spec.tone);
-  linksSvg.appendChild(path);
-  const len = path.getTotalLength();
-  if (!S.instant && !reduceMotion) {
-    path.style.strokeDasharray = len; path.style.strokeDashoffset = len;
-    path.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 700, easing: "cubic-bezier(.2,.75,.2,1)", fill: "forwards" })
-      .onfinish = () => { path.style.strokeDasharray = ""; path.style.strokeDashoffset = ""; };
-  }
-  let label = null;
-  if (spec.label) {
-    label = document.createElement("div"); label.className = "linklabel"; label.textContent = spec.label;
-    const mid = path.getPointAtLength(len / 2);
-    label.style.left = mid.x + "px"; label.style.top = (mid.y - 30) + "px";
-    world.appendChild(label);
-    setTimeout(() => label.classList.add("in"), dur(450));
-  }
-  S.links.set(id, { path, label, from: spec.from, to: spec.to });
-}
-function setLinkTone(id, tone) { const l = S.links.get(id); if (!l) return; l.path.classList.remove("flow", "bad", "good"); if (tone) l.path.classList.add(tone); }
-function removeLink(id) { const l = S.links.get(id); if (!l) return; l.path.remove(); l.label?.remove(); S.links.delete(id); }
-
-async function send(spec) {
-  const id = spec.token || "t";
-  let tk = S.tokens.get(id);
-  if (!tk) {
-    const el = document.createElement("div");
-    el.className = "token";
-    el.innerHTML = `<svg viewBox="0 0 24 24">${ICONS[spec.icon] || ICONS.envelope}</svg><span class="t"></span>`;
-    world.appendChild(el);
-    tk = { el, at: null }; S.tokens.set(id, tk);
-  }
-  if (spec.label) tk.el.querySelector(".t").textContent = spec.label;
-  if (spec.tone) { tk.el.classList.remove("bad", "good", "flow"); tk.el.classList.add(spec.tone); }
-  const from = center(spec.from || tk.at), to = center(spec.to);
-  if (!to) return;
-  // stack envelopes that land on the same actor
-  const others = [...S.tokens.entries()].filter(([k, t]) => k !== id && t.at === spec.to).length;
-  const lift = 146 + others * 50;
-  const p = from ? { x: from.x, y: from.y - (tk.lift || 146) } : { x: to.x, y: to.y - lift };
-  const q = { x: to.x, y: to.y - lift };
-  const c = { x: (p.x + q.x) / 2, y: Math.min(p.y, q.y) - 70 };
-  tk.el.style.offsetPath = `path("M${p.x},${p.y} Q${c.x},${c.y} ${q.x},${q.y}")`;
-  tk.el.style.opacity = 1;
-  tk.at = spec.to; tk.lift = lift;
-  const ms = dur(spec.ms || 1500);
-  if (!ms) { tk.el.style.offsetDistance = "100%"; return; }
-  const anim = tk.el.animate([{ offsetDistance: "0%" }, { offsetDistance: "100%" }], { duration: ms, easing: "cubic-bezier(.45,.05,.3,1)", fill: "forwards" });
-  S.camFollow = { el: tk.el, until: performance.now() + ms };
-  await anim.finished.catch(() => {});
-  tk.el.style.offsetDistance = "100%"; anim.cancel();
+function q(view, sel) {
+  try { return [...view.canvas.querySelectorAll(sel)]; } catch { console.warn("bad selector", sel); return []; }
 }
 
-function change(spec) {
-  const tk = S.tokens.get(spec.token || "t"); if (!tk) return;
-  const t = tk.el.querySelector(".t");
-  tk.el.classList.remove("swap"); void tk.el.offsetWidth; tk.el.classList.add("swap");
-  setTimeout(() => { t.textContent = spec.label; tk.el.classList.remove("bad", "good"); if (spec.tone) tk.el.classList.add(spec.tone); }, dur(220));
+// ======================= applying a step =======================
+function animClass(el) {
+  const a = el.dataset.anim;
+  if (a) return `in-${a}`;
+  if (el instanceof SVGElement && /^(path|line|polyline)$/.test(el.tagName)) return "in-draw";
+  return el instanceof SVGElement ? "in-fade" : "in-up";
 }
 
-function dropToken(id) { const tk = S.tokens.get(id || "t"); if (!tk) return; tk.el.style.opacity = 0; setTimeout(() => tk.el.remove(), dur(400)); S.tokens.delete(id || "t"); }
-
-function note(spec) {
-  const c = center(spec.at); if (!c) return;
-  const el = document.createElement("div");
-  const above = spec.pos === "above";
-  el.className = `note ${spec.tone || ""} ${above ? "above" : ""}`;
-  el.textContent = spec.text;
-  el.style.left = c.x + "px";
-  world.appendChild(el);
-  el.style.top = above ? `${c.y - 190 - el.offsetHeight}px` : `${c.y + 118}px`;
-  if (S.instant) el.classList.add("in"); else requestAnimationFrame(() => el.classList.add("in"));
-  S.notes.push({ el, at: spec.at });
-}
-function clearNotes() { S.notes.forEach(n => { n.el.classList.remove("in"); setTimeout(() => n.el.remove(), dur(400)); }); S.notes = []; }
-
-function mark(spec) {
-  const a = S.actors.get(spec.at); if (!a) return;
-  const m = a.el.querySelector(".mark");
-  m.className = `mark ${spec.icon === "ok" ? "ok" : "x"}`; m.textContent = spec.icon === "ok" ? "✓" : "✕";
-  requestAnimationFrame(() => m.classList.add("on"));
+function reveal(el, animate) {
+  el.removeAttribute("data-pre");
+  if (!animate) return;
+  const c = animClass(el);
+  if (c === "in-draw") { el.setAttribute("pathLength", el.getAttribute("pathLength") || "1"); el.style.strokeDasharray = el.classList.contains("dashed") ? "" : "1"; }
+  el.classList.remove(c); void el.getBoundingClientRect(); el.classList.add(c);
+  el.addEventListener("animationend", () => { el.classList.remove(c); if (c === "in-draw" && !el.classList.contains("dashed")) el.style.strokeDasharray = ""; }, { once: true });
 }
 
-function tone(spec) {
-  for (const id of [].concat(spec.at)) {
-    const a = S.actors.get(id); if (!a) continue;
-    a.el.classList.remove("bad", "good"); if (spec.tone && spec.tone !== "none") a.el.classList.add(spec.tone);
+function hideEl(el, animate) {
+  if (!animate) { el.setAttribute("data-pre", ""); return; }
+  el.classList.add("out");
+  el.addEventListener("animationend", () => { el.classList.remove("out"); el.setAttribute("data-pre", ""); }, { once: true });
+}
+
+function centerOf(view, el) {
+  const s = view.camScale || view.fit.s, r = el.getBoundingClientRect(), c = view.canvas.getBoundingClientRect();
+  return { x: (r.left + r.width / 2 - c.left) / s, y: (r.top + r.height / 2 - c.top) / s, w: r.width / s, h: r.height / s };
+}
+
+function getTranslate(el) {
+  const t = (el.style.translate || "0px 0px").split(" ").map(parseFloat);
+  return { x: t[0] || 0, y: t[1] || 0 };
+}
+
+async function move(view, spec, animate) {
+  for (const el of q(view, spec.sel)) {
+    const from = centerOf(view, el), base = getTranslate(el);
+    let pts;
+    if (spec.path) {
+      const p = q(view, spec.path)[0];
+      if (!p?.getTotalLength) continue;
+      // path points are in canvas units (draw paths in a 1600x900 layer svg); the element's center follows them
+      const L = p.getTotalLength(), n = 40;
+      pts = Array.from({ length: n + 1 }, (_, i) => {
+        const pt = p.getPointAtLength(L * i / n);
+        return { x: base.x + pt.x - from.x + (spec.dx || 0), y: base.y + pt.y - from.y + (spec.dy || 0) };
+      });
+    } else {
+      let to;
+      if (spec.to) {
+        const t = q(view, spec.to)[0]; if (!t) continue;
+        const c = centerOf(view, t);
+        to = { x: c.x + (spec.dx || 0), y: c.y + (spec.dy ?? 0) };
+      } else to = { x: spec.x, y: spec.y };
+      const d = { x: to.x - from.x, y: to.y - from.y }, arc = spec.arc ?? -60, n = 30;
+      pts = Array.from({ length: n + 1 }, (_, i) => {
+        const t = i / n, b = 4 * t * (1 - t);
+        return { x: base.x + d.x * t, y: base.y + d.y * t + arc * b };
+      });
+    }
+    const end = pts[pts.length - 1];
+    if (!animate) { el.style.translate = `${end.x}px ${end.y}px`; continue; }
+    const anim = el.animate(pts.map(p => ({ translate: `${p.x}px ${p.y}px` })), { duration: spec.ms || 1400, easing: "cubic-bezier(.45,.05,.3,1)", fill: "forwards" });
+    await anim.finished.catch(() => {});
+    el.style.translate = `${end.x}px ${end.y}px`; anim.cancel();
   }
 }
 
-function focus(ids) {
-  const set = new Set(ids || []);
-  world.classList.toggle("focusing", set.size > 0);
-  S.actors.forEach((a, id) => a.el.classList.toggle("focus", set.has(id)));
-  S.links.forEach(l => l.path.classList.toggle("lit", set.has(l.from) && set.has(l.to)));
-}
-
-let bigSeq = 0;
-function big(spec) {
-  const b = $("big"), seq = ++bigSeq;
-  if (!spec || S.instant) { b.classList.remove("in"); $("stage").classList.remove("has-big"); return; }   // transient: not rebuilt
-  b.className = `big ${spec.tone || ""}`;
-  b.querySelector("p").textContent = spec.text;
-  $("stage").classList.add("has-big");
-  requestAnimationFrame(() => { if (seq === bigSeq) b.classList.add("in"); });
-}
-
-function codeCard(spec) {
-  S.code?.remove(); S.code = null; $("stage").classList.remove("has-code");
-  if (!spec || S.instant) return;   // transient: not rebuilt when jumping between scenes
-  const el = document.createElement("div");
-  el.className = "codecard";
-  const start = spec.start || 1, hl = new Set(expand(spec.highlight || []));
-  el.innerHTML = `${spec.file ? `<div class="path">${esc(spec.file)}</div>` : ""}<pre>${spec.snippet.split("\n")
-    .map((l, i) => `<span class="ln${hl.has(start + i) ? " hl" : ""}" data-n="${start + i}">${esc(l) || " "}</span>`).join("")}</pre>`;
-  $("stage").appendChild(el);
-  $("stage").classList.add("has-code");
-  if (hl.size) el.classList.add("focusing");
-  requestAnimationFrame(() => { if (S.code === el) el.classList.add("in"); });
-  S.code = el;
-}
-function codeLines(lines) {
-  if (!S.code) return;
-  const set = new Set(expand(lines || []));
-  S.code.classList.toggle("focusing", set.size > 0);
-  let first = null;
-  S.code.querySelectorAll(".ln").forEach(l => { const on = set.has(+l.dataset.n); l.classList.toggle("hl", on); if (on && !first) first = l; });
-  first?.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
-}
-function expand(spec) { const out = []; for (const x of spec) { if (typeof x === "string" && x.includes("-")) { const [a, b] = x.split("-").map(Number); for (let i = a; i <= b; i++) out.push(i); } else out.push(+x); } return out; }
-
-// ======================= camera =======================
-function frame(ids) {
-  const stage = $("stage"), sw = stage.clientWidth, sh = stage.clientHeight;   // the plan panel already narrows the stage
-  const codeOpen = !!S.code;
-  const availW = codeOpen ? sw * 0.48 : sw, offX = 0;
-  const base = Math.min(availW / W, sh / H);
-  const pts = [];
-  const list = ids === "all" || !ids?.length ? [...S.actors.keys()] : ids;
-  for (const id of list) { const c = center(id); if (c) pts.push(c); }
-  for (const tk of S.tokens.values()) if (tk.at && list.includes(tk.at)) { const c = center(tk.at); pts.push({ x: c.x, y: c.y - 180 }); }
-  let s = base, tx = (availW - W * base) / 2 + offX, ty = (sh - H * base) / 2;
-  if (pts.length) {
-    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-    const x1 = Math.min(...xs) - 170, x2 = Math.max(...xs) + 170, y1 = Math.min(...ys) - 200, y2 = Math.max(...ys) + 190;
-    const bw = x2 - x1, bh = y2 - y1;
-    s = Math.min(base * 1.9, availW * .92 / bw, sh * .9 / bh);
-    s = Math.max(s, base * .7);
-    tx = offX + availW / 2 - s * (x1 + bw / 2);
-    ty = sh / 2 - s * (y1 + bh / 2);
-    // never leave an actor half inside the frame: widen the frame to include it whole
-    let box = { x1, y1, x2, y2 };
-    for (let pass = 0; pass < 3; pass++) {
-      let grow = false;
-      for (const a of S.actors.values()) {
-        const ax1 = a.def.x - 110, ax2 = a.def.x + 110, ay1 = a.def.y - 100, ay2 = a.def.y + 115;
-        const sx1 = tx + s * ax1, sx2 = tx + s * ax2, sy1 = ty + s * ay1, sy2 = ty + s * ay2;
-        const inside = sx1 >= 0 && sx2 <= availW && sy1 >= 0 && sy2 <= sh;
-        const outside = sx2 <= 0 || sx1 >= availW || sy2 <= 0 || sy1 >= sh;
-        if (!inside && !outside) {
-          box = { x1: Math.min(box.x1, ax1 - 40), y1: Math.min(box.y1, ay1 - 40), x2: Math.max(box.x2, ax2 + 40), y2: Math.max(box.y2, ay2 + 40) };
-          grow = true;
-        }
-      }
-      if (!grow) break;
-      const w = box.x2 - box.x1, h = box.y2 - box.y1;
-      s = Math.max(base * .7, Math.min(s, availW * .96 / w, sh * .96 / h));
-      tx = offX + availW / 2 - s * (box.x1 + w / 2);
-      ty = sh / 2 - s * (box.y1 + h / 2);
+function setProps(view, spec, animate) {
+  for (const el of q(view, spec.sel)) {
+    asList(spec.remove).forEach(c => String(c).split(/\s+/).filter(Boolean).forEach(x => el.classList.remove(x)));
+    asList(spec.add).forEach(c => String(c).split(/\s+/).filter(Boolean).forEach(x => el.classList.add(x)));
+    if (spec.attr) for (const [k, v] of Object.entries(spec.attr)) v === null ? el.removeAttribute(k) : el.setAttribute(k, v);
+    if (spec.style) Object.assign(el.style, spec.style);
+    if ("text" in spec) {
+      const target = el.querySelector("[data-text]") || el.querySelector(".t") || el;
+      const apply = () => { if (target === el && el.children.length && !(el instanceof SVGElement)) { const last = [...el.childNodes].reverse().find(n => n.nodeType === 3 && n.textContent.trim()); if (last) last.textContent = spec.text; else el.append(spec.text); } else target.textContent = spec.text; };
+      if (animate) { el.classList.remove("swap"); void el.getBoundingClientRect(); el.classList.add("swap"); setTimeout(apply, 220); el.addEventListener("animationend", () => el.classList.remove("swap"), { once: true }); }
+      else apply();
     }
   }
-  S.camera = { s, tx, ty }; S.camTarget = ids;
-  world.style.transition = S.instant ? "none" : "";
-  world.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
-  if (S.instant) { world.getBoundingClientRect(); world.style.transition = ""; }
-}
-addEventListener("resize", () => frame(S.camTarget));
-
-// ======================= running actions =======================
-async function runAction(a, scene) {
-  if (a.enter) for (const id of [].concat(a.enter)) enter(id, actorDef(scene, id));
-  if (a.exit) for (const id of [].concat(a.exit)) exit(id);
-  if (a.link) for (const l of [].concat(a.link)) link(l);
-  if (a.unlink) for (const id of [].concat(a.unlink)) removeLink(id);
-  if (a.change) change(a.change);
-  if (a.note) for (const n of [].concat(a.note)) note(n);
-  if (a.clearNotes) clearNotes();
-  if (a.mark) for (const m of [].concat(a.mark)) mark(m);
-  if (a.tone) for (const t of [].concat(a.tone)) tone(t);
-  if ("focus" in a) focus(a.focus);
-  if ("big" in a) big(a.big ? (typeof a.big === "string" ? { text: a.big } : a.big) : null);
-  if ("code" in a) { codeCard(a.code); if (!("camera" in a)) frame(S.camTarget); }
-  if (a.lines) codeLines(a.lines);
-  if (a.drop) dropToken(a.drop === true ? "t" : a.drop);
-  if ("camera" in a) frame(a.camera);
-  if (a.send) await send(a.send);
 }
 
-async function runStepActions(step, scene) {
-  const acts = step.do || [];
-  const hasCam = acts.some(a => "camera" in a);
-  const hasBig = acts.some(a => "big" in a);
-  if (!hasBig && $("big").classList.contains("in")) big(null);
-  // automatic framing follows whatever enters or travels
-  for (const a of acts) {
-    if (a.delay) await wait(a.delay);
-    const p = runAction(a, scene);
-    if (a.enter && !hasCam) frame("all");
-    if (a.send && !hasCam) frame([a.send.from, a.send.to].filter(Boolean));
-    if (a.wait !== false && a.send) await p;
+// Focus works with any markup: everything around the focused elements dims, at every level up to the canvas
+const SKIP = /^(style|defs|marker|script|title|desc|lineargradient|radialgradient|clippath|mask|symbol)$/i;
+function setFocus(view, sels) {
+  view.canvas.querySelectorAll(".focus, .dimmed").forEach(e => e.classList.remove("focus", "dimmed"));
+  const targets = asList(sels).flatMap(s => q(view, s));
+  view.canvas.classList.toggle("focusing", targets.length > 0);
+  if (!targets.length) return;
+  targets.forEach(e => e.classList.add("focus"));
+  for (const el of targets) {
+    for (let n = el; n && n !== view.canvas && n.parentElement; n = n.parentElement) {
+      for (const sib of n.parentElement.children) {
+        if (sib === n || SKIP.test(sib.tagName) || sib.hasAttribute("data-pre")) continue;
+        sib.classList.add("dimmed");
+      }
+      if (n.parentElement === view.canvas) break;
+    }
   }
+  // never dim a focused element, something inside one, or a container of one
+  view.canvas.querySelectorAll(".dimmed").forEach(d => {
+    if (d.classList.contains("focus") || d.closest(".focus") || targets.some(t => d.contains(t))) d.classList.remove("dimmed");
+  });
 }
 
-function resetWorld() {
-  S.actors.forEach(a => a.el.remove()); S.actors.clear();
-  S.links.forEach(l => { l.path.remove(); l.label?.remove(); }); S.links.clear();
-  S.tokens.forEach(t => t.el.remove()); S.tokens.clear();
-  S.notes.forEach(n => n.el.remove()); S.notes = [];
-  codeCard(null); big(null); focus([]);
+function setLines(view, spec) {
+  // spec: { sel: ".code" (optional), lines: [130, "132-133"] }
+  const codes = spec.sel ? q(view, spec.sel) : q(view, ".code");
+  const set = new Set(expandLines(asList(spec.lines)));
+  codes.forEach(code => {
+    code.classList.toggle("focusing", set.size > 0);
+    code.querySelectorAll(".ln").forEach(l => l.classList.toggle("hl", set.has(+l.dataset.n)));
+  });
 }
 
-// Instantly rebuild the world state up to the start of a scene
-async function rebuildUntil(k) {
-  S.instant = true;
-  resetWorld();
-  for (let i = 0; i < k; i++) {
-    const sc = S.scenes[i];
-    if (sc.clear) resetWorld();
-    for (const st of sc.steps) for (const a of st.do || []) await runAction(a, sc);
-    endScene(sc, true);
+function applyCamera(view, target, instant = false) {
+  view.cam = target ?? null;
+  const { s: base, w, h } = view.fit;
+  let s = base, tx = (w - W * base) / 2, ty = (h - H * base) / 2;
+  const sels = target == null || target === "all" ? [] : asList(target);
+  if (sels.length) {
+    const prev = view.canvas.style.transform;
+    view.canvas.style.transition = "none";
+    view.canvas.style.transform = `translate(0px,0px) scale(${base})`;
+    view.camScale = base;
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    sels.forEach(sel => q(view, sel).forEach(el => {
+      const c = centerOf(view, el);
+      x1 = Math.min(x1, c.x - c.w / 2); x2 = Math.max(x2, c.x + c.w / 2);
+      y1 = Math.min(y1, c.y - c.h / 2); y2 = Math.max(y2, c.y + c.h / 2);
+    }));
+    // other visible elements, to avoid leaving any of them cut in half at the frame's edge
+    const others = [...view.canvas.querySelectorAll("[data-el], .box, .card, .pill, .note, .code, .chip")]
+      .filter(el => !el.closest("[data-pre]") && el.getClientRects().length)
+      .map(el => { const c = centerOf(view, el); return { x1: c.x - c.w / 2, x2: c.x + c.w / 2, y1: c.y - c.h / 2, y2: c.y + c.h / 2 }; });
+    view.canvas.style.transform = prev; void view.canvas.getBoundingClientRect(); view.canvas.style.transition = "";
+    if (isFinite(x1)) {
+      const pad = 90;
+      const solve = () => {
+        const bw = x2 - x1 + pad * 2, bh = y2 - y1 + pad * 2;
+        s = Math.max(base, Math.min(base * 2.2, w / bw, h / bh));
+        tx = w / 2 - s * (x1 + x2) / 2; ty = h / 2 - s * (y1 + y2) / 2;
+      };
+      solve();
+      for (let pass = 0; pass < 3; pass++) {
+        let grew = false;
+        for (const o of others) {
+          const sx1 = tx + s * o.x1, sx2 = tx + s * o.x2, sy1 = ty + s * o.y1, sy2 = ty + s * o.y2;
+          const inside = sx1 >= 0 && sx2 <= w && sy1 >= 0 && sy2 <= h, outside = sx2 <= 0 || sx1 >= w || sy2 <= 0 || sy1 >= h;
+          if (!inside && !outside) { x1 = Math.min(x1, o.x1); x2 = Math.max(x2, o.x2); y1 = Math.min(y1, o.y1); y2 = Math.max(y2, o.y2); grew = true; }
+        }
+        if (!grew) break;
+        solve();
+      }
+      // don't show empty space beyond the canvas edges when zoomed in
+      tx = W * s >= w ? Math.min(0, Math.max(w - W * s, tx)) : (w - W * s) / 2;
+      ty = H * s >= h ? Math.min(0, Math.max(h - H * s, ty)) : (h - H * s) / 2;
+    }
   }
-  S.instant = false;
+  view.camScale = s;
+  if (instant || view.isStatic) { view.canvas.style.transition = "none"; }
+  view.canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+  if (instant || view.isStatic) { void view.canvas.getBoundingClientRect(); view.canvas.style.transition = ""; }
 }
 
-function endScene(scene, instant) {
-  clearNotesIfAny(instant); focus([]); big(null); codeCard(null);
-  for (const id of scene.dropAtEnd || []) dropToken(id);
+async function applyStep(view, sceneDiv, scene, i, animate) {
+  const st = scene.steps[i] || {};
+  const n = i + 1;
+  sceneDiv.querySelectorAll(`[data-step="${n}"]`).forEach(el => reveal(el, animate));
+  view.canvas.querySelectorAll(`[data-hide="${n}"]`).forEach(el => { if (el.closest(".scene") === sceneDiv) hideEl(el, animate); });
+  asList(st.show).forEach(sel => q(view, sel).forEach(el => reveal(el, animate)));
+  asList(st.hide).forEach(sel => q(view, sel).forEach(el => hideEl(el, animate)));
+  asList(st.set).forEach(spec => setProps(view, spec, animate));
+  if ("focus" in st) setFocus(view, st.focus);
+  if (st.lines) setLines(view, Array.isArray(st.lines) ? { lines: st.lines } : st.lines);
+  if ("camera" in st) applyCamera(view, st.camera, !animate);
+  if (st.run) { try { new Function("root", "ctx", st.run)(view.canvas, { animate, step: n }); } catch (e) { console.warn("step run failed", e); } }
+  const moves = asList(st.move).map(m => move(view, m, animate));
+  if (animate) await Promise.all(moves);
 }
-function clearNotesIfAny(instant) { if (instant) { S.notes.forEach(n => n.el.remove()); S.notes = []; } else clearNotes(); }
+
+function finishScene(view) { setFocus(view, []); }
+
+// Render scenes [first..k] statically up to (and including) step `upto` of scene k (-1 = before any step)
+async function buildStatic(view, k, upto) {
+  view.canvas.innerHTML = ""; view.css.textContent = ""; view.cam = null;
+  const { first, list } = sceneChain(k);
+  let div = null;
+  for (let j = 0; j < list.length; j++) {
+    const idx = first + j, sc = list[j];
+    div = mountScene(view, sc, idx);
+    const last = idx === k ? upto : sc.steps.length - 1;
+    applyCamera(view, null, true);
+    for (let i = 0; i <= last; i++) await applyStep(view, div, sc, i, false);
+    if (idx !== k) finishScene(view);
+  }
+  return div;
+}
 
 // ======================= voice =======================
 let voice = null;
 function pickVoice() {
-  // browser voice for the tour's language (used only when an edge-tts clip is missing)
+  if (!("speechSynthesis" in window)) return;
   const L = (S.lang || "en").toLowerCase(), base = L.split("-")[0];
   const vs = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace("_", "-").startsWith(base));
-  const natural = (v) => /Natural|Online/i.test(v.name);
-  const region = (v) => v.lang.toLowerCase().replace("_", "-") === L;
+  const natural = (v) => /Natural|Online/i.test(v.name), region = (v) => v.lang.toLowerCase().replace("_", "-") === L;
   voice = vs.find(v => natural(v) && region(v)) || vs.find(natural) || vs.find(region) || vs[0] || null;
 }
 if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 
-let current = null;   // { audio | utterance, resolve }
+let current = null;
 function say(step) {
   return new Promise(resolve => {
     stopVoice();
-    const text = step.text;
-    setCaption(text);
+    setCaption(step.text || "");
     const done = () => { current = null; resolve(); };
     if (step.src) {
-      const a = new Audio(step.src); current = { audio: a, resolve: done };
-      a.onended = done; a.onerror = () => speakTTS(text, done);
-      a.play().catch(() => speakTTS(text, done));
-    } else speakTTS(text, done);
+      const a = new Audio(step.src); current = { audio: a };
+      a.onended = done; a.onerror = () => speakTTS(step.text, done);
+      a.play().catch(() => speakTTS(step.text, done));
+    } else speakTTS(step.text, done);
   });
 }
 function speakTTS(text, done) {
-  if (!("speechSynthesis" in window) || !voice && speechSynthesis.getVoices().length === 0) {
-    const ms = Math.max(1800, text.split(/\s+/).length * 380);   // no voice: reading time
-    const t = setTimeout(done, ms); current = { timer: t, resolve: done, ms, started: performance.now() };
-    return;
+  if (!("speechSynthesis" in window) || (!voice && speechSynthesis.getVoices().length === 0)) {
+    const t = setTimeout(done, Math.max(1800, String(text).split(/\s+/).length * 380)); current = { timer: t }; return;
   }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = voice?.lang || S.lang || "en"; if (voice) u.voice = voice; u.rate = 1.02;
-  u.onend = done; u.onerror = done;
-  current = { utter: u, resolve: done };
+  u.onend = done; u.onerror = done; current = { utter: u };
   speechSynthesis.speak(u);
 }
 function stopVoice() {
-  if (!current) return;
   const c = current; current = null;
-  if (c.audio) { c.audio.onended = null; c.audio.pause(); }
-  if (c.timer) clearTimeout(c.timer);
-  if (c.utter) { c.utter.onend = null; speechSynthesis.cancel(); }
-  if ("speechSynthesis" in window && speechSynthesis.paused) speechSynthesis.resume();   // if left paused, the next utterance would stay silent
+  if (c?.audio) { c.audio.onended = null; c.audio.pause(); }
+  if (c?.timer) clearTimeout(c.timer);
+  if (c?.utter) { c.utter.onend = null; speechSynthesis.cancel(); }
+  if ("speechSynthesis" in window && speechSynthesis.paused) speechSynthesis.resume();
 }
 
 // ======================= playback =======================
+function liveView() {
+  if (!S.view) S.view = createView($("host"));
+  return S.view;
+}
+
 async function playScene(k, { rebuild = true } = {}) {
   const run = ++S.runId;
   stopVoice();
-  S.scene = k; S.step = 0;
-  if (rebuild) await rebuildUntil(k);
+  S.scene = k; S.step = 0; S.waiting = false;
   const sc = S.scenes[k];
   if (!sc) { updateChrome(); return; }
-  if (sc.clear) resetWorld();
-  report();
-  markPlanSection(true);
-  updateChrome();
+  const view = liveView();
+  let div;
+  const chained = sc.continue && !rebuild && view.canvas.querySelector(`.scene[data-scene="${k - 1}"]`);
+  if (chained) {
+    finishScene(view);
+    div = mountScene(view, sc, k);
+  } else {
+    $("stage").classList.add("leaving"); await sleep(rebuild ? 0 : 250);
+    if (run !== S.runId) return;
+    div = await buildStatic(view, k, -1);
+    $("stage").classList.remove("leaving");
+  }
+  report(); markPlanSection(true); updateChrome();
   for (let i = 0; i < sc.steps.length; i++) {
     if (run !== S.runId) return;
     S.step = i;
-    const st = sc.steps[i];
-    const acts = runStepActions(st, sc);
-    const talk = say(st);
-    await Promise.all([acts, talk]);
+    const acts = applyStep(view, div, sc, i, true);
+    await Promise.all([acts, say(sc.steps[i])]);
     await waitWhilePaused(run);
     if (run !== S.runId) return;
-    await wait(st.pause ?? 350);
+    await sleep(sc.steps[i].pause ?? 350);
   }
   if (run !== S.runId) return;
-  endScene(sc, false);
-  await wait(700);
+  finishScene(view);
+  await sleep(800);
   if (run !== S.runId) return;
   nextOrWait(run);
 }
 
-function waitWhilePaused(run) {
-  return new Promise(r => { const chk = () => (!S.paused || run !== S.runId) ? r() : setTimeout(chk, 150); chk(); });
-}
+function waitWhilePaused(run) { return new Promise(r => { const chk = () => (!S.paused || run !== S.runId) ? r() : setTimeout(chk, 150); chk(); }); }
 
 function nextOrWait(run) {
   if (S.scene + 1 < S.scenes.length) { playScene(S.scene + 1, { rebuild: false }); return; }
-  S.waiting = true;
-  updateStatus();
+  S.waiting = true; updateStatus();
   const chk = () => {
     if (run !== S.runId) return;
     if (S.scene + 1 < S.scenes.length) { S.waiting = false; playScene(S.scene + 1, { rebuild: false }); }
@@ -666,8 +677,7 @@ function nextOrWait(run) {
 
 function go(k) {
   if (k < 0 || k >= S.scenes.length) return;
-  S.waiting = false;
-  if (S.paused) { S.paused = false; updateChrome(); }   // navigating resumes playback
+  if (S.paused) { S.paused = false; updateChrome(); }
   playScene(k);
 }
 
@@ -706,10 +716,9 @@ function updateChrome() {
 
 function tick() {
   const bar = $("track").children[S.scene]?.firstChild, sc = S.scenes[S.scene];
-  if (bar && sc) bar.style.transform = `scaleX(${Math.min(1, (S.step + (current ? .5 : 1)) / sc.steps.length)})`;
+  if (bar && sc?.steps?.length) bar.style.transform = `scaleX(${Math.min(1, (S.step + (current ? .5 : 1)) / sc.steps.length)})`;
   requestAnimationFrame(tick);
 }
-requestAnimationFrame(tick);
 
 function togglePause() {
   S.paused = !S.paused;
@@ -720,53 +729,24 @@ function togglePause() {
   }
   updateChrome();
 }
-
 function toggleCaptions() { captions = !captions; setPref("plan-tour-cc", captions ? "on" : "off"); applyCaptions(); }
 
-$("start").onclick = () => {
-  S.started = true; $("intro").classList.add("hidden");
-  if ("speechSynthesis" in window) pickVoice();
-  if (S.scenes.length) playScene(0); else updateStatus();
-  $("toggle").focus();
-};
-$("prev").onclick = () => go(S.scene - 1);
-$("next").onclick = () => go(S.scene + 1);
-$("replay").onclick = () => go(S.scene);
-$("toggle").onclick = togglePause;
-$("cc").onclick = toggleCaptions;
-document.addEventListener("keydown", (e) => {
-  if (!S.started) { if (e.key === "Enter") $("start").click(); return; }
-  if (e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;
-  if (e.key === "ArrowRight") go(S.scene + 1);
-  else if (e.key === "ArrowLeft") go(S.scene - 1);
-  else if (e.key === " ") { e.preventDefault(); togglePause(); }
-  else if (e.key.toLowerCase() === "r") go(S.scene);
-  else if (e.key.toLowerCase() === "c") toggleCaptions();
-  else if (e.key.toLowerCase() === "p" && !$("planbtn").classList.contains("hidden")) togglePlan();
-  else if (e.key === "Escape" && planUI.open) togglePlan(false);
-});
-
-// arrow marker
-linksSvg.innerHTML = `<defs><marker id="arrow" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
-  <path d="M2,2 L10,6 L2,10" fill="none" stroke="#6a82a3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`;
+addEventListener("resize", () => { if (S.view) fitView(S.view); });
+new ResizeObserver(() => { if (S.view) fitView(S.view); }).observe($("stage"));
 
 // ======================= written plan =======================
 const planUI = { open: false, md: null, version: null, pausedByPanel: false };
-
 async function loadPlan(version) {
   if (planUI.version === version && planUI.md !== null) return;
   try {
     const md = window.DEMO ? window.DEMO.planText : await (await fetch(`plan.md?t=${Date.now()}`, { cache: "no-store" })).text();
     planUI.md = md; planUI.version = version;
     const body = $("plan-body");
-    body.innerHTML = window.marked ? marked.parse(md, { gfm: true, breaks: false })
-      : `<pre>${esc(md)}</pre>`;
+    body.innerHTML = window.marked ? marked.parse(md, { gfm: true }) : `<pre>${esc(md)}</pre>`;
     body.querySelectorAll("a[href]").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
     markPlanSection(false);
   } catch { $("plan-body").innerHTML = '<p class="plan-empty">Could not load the plan.</p>'; }
 }
-
-// Highlight the plan section the current scene is telling
 function markPlanSection(scroll = true) {
   const body = $("plan-body");
   body.querySelectorAll(".here").forEach(el => el.classList.remove("here"));
@@ -782,70 +762,160 @@ function markPlanSection(scroll = true) {
   for (let el = h.nextElementSibling; el && !(/^H[1-6]$/.test(el.tagName) && +el.tagName[1] <= level); el = el.nextElementSibling) el.classList.add("here");
   if (scroll && planUI.open) h.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
 }
-
 function togglePlan(force) {
   const open = force ?? !planUI.open;
   if (open === planUI.open) return;
   planUI.open = open;
-  $("plan").classList.toggle("open", open);
-  $("plan").setAttribute("aria-hidden", String(!open));
-  $("planbtn").setAttribute("aria-pressed", String(open));
-  document.body.classList.toggle("plan-open", open);
+  $("plan").classList.toggle("open", open); $("plan").setAttribute("aria-hidden", String(!open));
+  $("planbtn").setAttribute("aria-pressed", String(open)); document.body.classList.toggle("plan-open", open);
   if (open) {
-    if (S.started && !S.paused) { togglePause(); planUI.pausedByPanel = true; }   // reading and listening at once doesn't work
-    markPlanSection(true);
-    $("plan-close").focus();
+    if (S.started && !S.paused) { togglePause(); planUI.pausedByPanel = true; }
+    markPlanSection(true); $("plan-close").focus();
   } else {
     if (planUI.pausedByPanel && S.paused) togglePause();
-    planUI.pausedByPanel = false;
-    $("planbtn").focus();
+    planUI.pausedByPanel = false; $("planbtn").focus();
   }
-  setTimeout(() => frame(S.camTarget), 480);
 }
-
-$("planbtn").onclick = () => togglePlan();
-$("plan-close").onclick = () => togglePlan(false);
-
 function syncPlan(plan) {
   const has = !!plan || !!window.DEMO?.planText;
   $("planbtn").classList.toggle("hidden", !has);
   if (has) loadPlan(plan?.updated ?? "demo");
 }
 
-// ======================= data: embedded demo or server manifest =======================
+// ======================= controls =======================
+$("start").onclick = () => {
+  S.started = true; $("intro").classList.add("hidden"); pickVoice();
+  if (S.scenes.length) playScene(0); else updateStatus();
+  $("toggle").focus();
+};
+$("prev").onclick = () => go(S.scene - 1);
+$("next").onclick = () => go(S.scene + 1);
+$("replay").onclick = () => go(S.scene);
+$("toggle").onclick = togglePause;
+$("cc").onclick = toggleCaptions;
+$("planbtn").onclick = () => togglePlan();
+$("plan-close").onclick = () => togglePlan(false);
+document.addEventListener("keydown", (e) => {
+  if (!S.started) { if (e.key === "Enter") $("start").click(); return; }
+  if (e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;
+  if (e.key === "ArrowRight") go(S.scene + 1);
+  else if (e.key === "ArrowLeft") go(S.scene - 1);
+  else if (e.key === " ") { e.preventDefault(); togglePause(); }
+  else if (e.key.toLowerCase() === "r") go(S.scene);
+  else if (e.key.toLowerCase() === "c") toggleCaptions();
+  else if (e.key.toLowerCase() === "p" && !$("planbtn").classList.contains("hidden")) togglePlan();
+  else if (e.key === "Escape" && planUI.open) togglePlan(false);
+});
+
+// ======================= data =======================
 function load(m) {
   syncPlan(m.plan);
-  if (S.tour !== m.tour) {
-    S.tour = m.tour; S.revision = m.revision ?? 0;
-    S.scenes = m.scenes || []; S.actorDefs = m.actors || {};
-    S.total = m.total; S.done = !!m.done; S.outline = m.outline; S.lang = m.lang;
-    document.documentElement.lang = m.lang || "en"; if ("speechSynthesis" in window) pickVoice();
-    if (S.started && S.scenes.length) playScene(0);
-    updateChrome(); updateStatus(); return;
-  }
+  const newTour = S.tour !== m.tour;
   const prevLen = S.scenes.length;
-  S.scenes = m.scenes || []; S.actorDefs = m.actors || {}; S.total = m.total; S.done = !!m.done; S.outline = m.outline;
-  if (S.revision !== (m.revision ?? 0)) {        // Claude rewound after a question or an adjustment
+  S.tour = m.tour; S.scenes = m.scenes || []; S.total = m.total; S.done = !!m.done; S.outline = m.outline;
+  if (S.lang !== m.lang) { S.lang = m.lang || "en"; document.documentElement.lang = S.lang; pickVoice(); }
+  if (newTour) {
+    S.revision = m.revision ?? 0;
+    if (S.started && S.scenes.length) playScene(0);
+  } else if (S.revision !== (m.revision ?? 0)) {      // Claude rewound after a question or an adjustment
     S.revision = m.revision;
     const k = m.resumeAt ?? S.scene;
     if (S.started) {
       if (k < S.scenes.length) go(k);
-      else {                                       // the new scene hasn't arrived yet: wait there
-        const run = ++S.runId; stopVoice(); big(null);
-        rebuildUntil(k).then(() => { if (run !== S.runId) return; S.scene = k - 1; nextOrWait(run); });
-      }
+      else { const run = ++S.runId; stopVoice(); S.scene = k - 1; nextOrWait(run); }
     }
   } else if (S.started && prevLen === 0 && S.scenes.length) playScene(0);
   updateChrome(); updateStatus();
 }
 
-if (window.DEMO) { load(window.DEMO); }
-else {
-  const poll = async () => {
-    try { const r = await fetch(`manifest.json?t=${Date.now()}`, { cache: "no-store" }); if (r.ok) load(await r.json()); } catch {}
-    setTimeout(poll, 1000);
+// ======================= review mode: contact sheet + layout lint =======================
+async function review() {
+  document.body.classList.add("review");
+  const r = await fetch(`manifest.json?t=${Date.now()}`, { cache: "no-store" });
+  const m = await r.json();
+  S.scenes = m.scenes || []; S.lang = m.lang || "en";
+  let k;
+  if (params.get("review") === "draft") {
+    const d = await (await fetch(`draft.json?t=${Date.now()}`, { cache: "no-store" })).json();
+    S.scenes = [...S.scenes.slice(0, d.index), d.scene];
+    k = d.index;
+  } else k = +params.get("review");
+  const sc = S.scenes[k];
+  const sheet = $("sheet"); sheet.classList.remove("hidden");
+  const issues = [];
+  await document.fonts.ready;
+  for (let i = 0; i < sc.steps.length; i++) {
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<div class="frame"></div><figcaption><b>${i + 1}</b>${esc(sc.steps[i].text)}</figcaption>`;
+    sheet.appendChild(fig);
+    const frame = fig.querySelector(".frame");
+    const view = createView(frame, { static: true });
+    await buildStatic(view, k, i);
+    await sleep(60);   // timers advance in headless virtual time; animation frames may not
+    lint(view, i + 1, issues);
+  }
+  $("lint").textContent = JSON.stringify({ scene: k + 1, steps: sc.steps.length, issues });
+  document.title = "REVIEW_DONE";
+}
+
+function lint(view, step, issues) {
+  const s = view.camScale || view.fit.s;
+  const cr = view.canvas.getBoundingClientRect();
+  const frame = view.host.getBoundingClientRect();
+  const visible = (el) => {
+    if (el.closest("[data-pre]")) return false;
+    let n = el;
+    while (n && n !== view.canvas) { const cs = getComputedStyle(n); if (cs.display === "none" || cs.visibility === "hidden" || +cs.opacity < .05) return false; n = n.parentElement; }
+    return true;
   };
-  poll();
+  const items = [...view.canvas.querySelectorAll("[data-el], .box, .card, .pill, .note, .chip, .code, .big, .title, svg text")]
+    .filter(visible).filter(el => !el.matches(".big") || true);
+  const name = (el) => el.id ? `#${el.id}` : el.dataset.el ? `[data-el=${el.dataset.el}]` : `${el.tagName.toLowerCase()}.${[...el.classList].filter(c => !c.startsWith("in-")).join(".")}`;
+  const rects = items.map(el => { const r = el.getBoundingClientRect(); return { el, x1: (r.left - cr.left) / s, y1: (r.top - cr.top) / s, x2: (r.right - cr.left) / s, y2: (r.bottom - cr.top) / s, sx1: r.left - frame.left, sy1: r.top - frame.top, sx2: r.right - frame.left, sy2: r.bottom - frame.top }; });
+  for (const r of rects) {
+    if (r.sx1 < -2 || r.sy1 < -2 || r.sx2 > frame.width + 2 || r.sy2 > frame.height + 2) issues.push({ step, type: "off-screen", el: name(r.el), msg: "it is cut off at the edge of the frame (move it, or frame the camera so it is fully in or fully out)" });
+    const el = r.el;
+    if (!(el instanceof SVGElement) && (el.scrollWidth > el.clientWidth + 2 || el.scrollHeight > el.clientHeight + 2) && getComputedStyle(el).overflow !== "visible")
+      issues.push({ step, type: "overflow", el: name(el), msg: "its text doesn't fit inside it" });
+    const fs = parseFloat(getComputedStyle(el).fontSize) || 0;
+    if (fs && fs < 16 && (el.textContent || "").trim()) issues.push({ step, type: "small-text", el: name(el), msg: `font size ${fs}px is hard to read on a TV (use 18px or more)` });
+  }
+  for (let a = 0; a < rects.length; a++) for (let b = a + 1; b < rects.length; b++) {
+    const A = rects[a], B = rects[b];
+    if (A.el.contains(B.el) || B.el.contains(A.el) || A.el.matches(".big") || B.el.matches(".big")) continue;
+    const ix = Math.min(A.x2, B.x2) - Math.max(A.x1, B.x1), iy = Math.min(A.y2, B.y2) - Math.max(A.y1, B.y1);
+    if (ix <= 4 || iy <= 4) continue;
+    const small = Math.min((A.x2 - A.x1) * (A.y2 - A.y1), (B.x2 - B.x1) * (B.y2 - B.y1)) || 1;
+    if (ix * iy / small > .12) issues.push({ step, type: "overlap", el: `${name(A.el)} + ${name(B.el)}`, msg: "these elements overlap" });
+  }
+  // arrows crossing boxes they don't connect
+  const boxes = rects.filter(r => r.el.matches(".box, .card, .code, [data-el]") && !r.el.matches("svg *"));
+  view.canvas.querySelectorAll(".arrow").forEach(p => {
+    if (!visible(p) || !p.getTotalLength) return;
+    const L = p.getTotalLength(), ctm = p.getScreenCTM(); if (!ctm || !L) return;
+    const hits = new Set();
+    for (let i = 4; i <= 36; i++) {
+      const pt = p.getPointAtLength(L * i / 40), sp = new DOMPoint(pt.x, pt.y).matrixTransform(ctm);
+      const x = (sp.x - cr.left) / s, y = (sp.y - cr.top) / s;
+      boxes.forEach(b => { if (x > b.x1 + 6 && x < b.x2 - 6 && y > b.y1 + 6 && y < b.y2 - 6) hits.add(b.el); });
+    }
+    hits.forEach(b => issues.push({ step, type: "arrow-through", el: `${name(p)} → ${name(b)}`, msg: "the arrow passes over an element in the middle of its path" }));
+  });
+  // dedupe same issue across steps
+}
+
+// ======================= start =======================
+if (REVIEW) review();
+else {
+  requestAnimationFrame(tick);
+  if (window.DEMO) load(window.DEMO);
+  else {
+    const poll = async () => {
+      try { const r = await fetch(`manifest.json?t=${Date.now()}`, { cache: "no-store" }); if (r.ok) load(await r.json()); } catch {}
+      setTimeout(poll, 1000);
+    };
+    poll();
+  }
 }
 </script>
 </body>

@@ -9,10 +9,13 @@ Commands:
                          (e.g. es, en, pt, es-AR); it picks the voice. Defaults to en.
   where                  Print this project's tour folder.
   plan                   Read the written plan (markdown, verbatim) from stdin so it can be read in the player.
-  outline                Read the outline (case, actors, scenes) from stdin.
+  outline                Read the outline (case, scenes) from stdin.
   serve [--port P] [--open]
                          Serve the player at http://127.0.0.1:P (run it in the background).
-  add [file|-]           Read a scene (JSON) from stdin or a file, validate it, synthesize audio and publish it.
+  draft [file|-]         Validate and visually review a scene WITHOUT publishing it (snapshot + layout issues).
+  add [file|-]           Validate, synthesize audio, publish the scene, then review it (--no-review to skip).
+  replace N [file|-]     Replace published scene N (same checks and review).
+  review N               Visually review published scene N.
   status                 Show published scenes, the scene the user is watching, the outline and the cast.
   rewind [N]             Drop scenes from N on (1 = first). Without N: keep up to the scene being watched.
   finish                 Mark the tour as finished.
@@ -21,6 +24,7 @@ Optional environment variables:
   PLAN_TOUR_VOICE  edge-tts voice; overrides the one picked from --lang (e.g. es-MX-JorgeNeural)
   PLAN_TOUR_RATE   speaking rate, e.g. +10% or -5% (default +0%)
   PLAN_TOUR_DIR    tour folder (default <system temp>/plan-tour/<project>-<hash>)
+  PLAN_TOUR_BROWSER  path to Edge/Chrome/Chromium for the visual review (auto-detected)
 """
 import argparse
 import asyncio
@@ -162,7 +166,7 @@ def cmd_allow(_args) -> None:
 def cmd_init(args) -> None:
     d = tour_dir()
     if d.exists():
-        for child in ("audio", "scenes", "position.json", "plan.md"):
+        for child in ("scenes", "review", "position.json", "plan.md", "draft.json"):
             p = d / child
             shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
     (d / "audio").mkdir(parents=True, exist_ok=True)
@@ -173,7 +177,7 @@ def cmd_init(args) -> None:
     lang = (args.lang or "en").lower().replace("_", "-")
     save_manifest({
         "tour": int(time.time()), "revision": 0, "resumeAt": 0, "total": None, "done": False,
-        "lang": lang, "voice": voice_for(lang), "actors": {}, "outline": None, "plan": None, "scenes": [],
+        "lang": lang, "voice": voice_for(lang), "outline": None, "plan": None, "scenes": [],
     })
     print(f"Tour ready in {d} (language: {lang}, voice: {voice_for(lang)})")
 
@@ -241,12 +245,7 @@ def cmd_serve(args) -> None:
 
 # ---------- plan, outline, scenes and validation ----------
 
-WORLD_W, WORLD_H = 1600, 900
-ICONS = {"person", "screen", "table", "server", "filter", "gear", "search", "db", "list", "lock",
-         "store", "cloud", "box", "envelope", "key", "clock"}
-ACTIONS = {"enter", "exit", "link", "unlink", "send", "change", "drop", "note", "clearNotes", "mark",
-           "tone", "focus", "camera", "big", "code", "lines", "delay", "wait"}
-TONES = {"flow", "bad", "good", "none", None}
+STEP_KEYS = {"text", "show", "hide", "set", "move", "focus", "camera", "lines", "run", "pause"}
 
 
 def expand_lines(spec) -> list:
@@ -300,84 +299,63 @@ def cmd_plan(_args) -> None:
         print("  " * (h["level"] - 1) + "- " + h["text"])
 
 
-def auto_layout(actors: dict) -> None:
-    """Place actors without a position in one row (up to 5) or two rows (6 to 10)."""
-    free = [k for k, a in actors.items() if "x" not in a or "y" not in a]
-    if not free:
-        return
-    rows = [free] if len(free) <= 5 else [free[: (len(free) + 1) // 2], free[(len(free) + 1) // 2:]]
-    ys = [470] if len(rows) == 1 else [280, 680]
-    for row, y in zip(rows, ys):
-        n = len(row)
-        for i, k in enumerate(row):
-            actors[k]["x"] = round(170 + (WORLD_W - 340) * (i / (n - 1) if n > 1 else 0.5))
-            actors[k]["y"] = y
-
-
-def check_actors(actors: dict) -> list:
-    """Validate actor definitions; return overlap warnings."""
-    warns = []
-    for k, a in actors.items():
-        if not re.fullmatch(r"[A-Za-z][\w-]*", k):
-            sys.exit(f"Invalid actor id: {k!r} (use letters, digits and underscores)")
-        if not a.get("label"):
-            sys.exit(f"Actor {k!r} needs a 'label'")
-        if a.get("icon", "box") not in ICONS:
-            sys.exit(f"Actor {k!r} uses icon {a.get('icon')!r}; available: {sorted(ICONS)}")
-        if not (100 <= a["x"] <= WORLD_W - 100 and 150 <= a["y"] <= WORLD_H - 150):
-            sys.exit(f"Actor {k!r} is off stage (x 100-1500, y 150-750): ({a['x']}, {a['y']})")
-    keys = list(actors)
-    for i, k1 in enumerate(keys):
-        for k2 in keys[i + 1:]:
-            a, b = actors[k1], actors[k2]
-            if abs(a["x"] - b["x"]) < 250 and abs(a["y"] - b["y"]) < 300:
-                warns.append(f"actors {k1!r} and {k2!r} are too close and will overlap")
-    return warns
-
-
 def cmd_outline(_args) -> None:
-    """Store the outline: the case, the cast (actors) and the scene titles."""
+    """Store the outline: the case and the scene titles."""
     data = read_stdin_json("outline")
     scenes = data.get("scenes") or []
     if not scenes or not all(s.get("title") for s in scenes):
         sys.exit('The outline needs "scenes": [{"title": ..., "goal": ...}, ...]')
-    actors = data.get("actors") or {}
-    if not actors:
-        sys.exit('The outline needs "actors": the cast of the story with label, sub and icon')
     m = load_manifest()
-    merged = {**m.get("actors", {}), **actors}
-    auto_layout(merged)
-    for w in check_actors(merged):
-        print(f"Warning: {w}", file=sys.stderr)
-    m["actors"] = merged
     m["outline"] = {"case": data.get("case", ""), "scenes": scenes}
     m["total"] = max(len(scenes), len(m["scenes"]))
     save_manifest(m)
-    print(f"Outline saved: {len(scenes)} scenes, {len(merged)} actors")
-    print("Positions: " + ", ".join(f"{k}=({a['x']},{a['y']})" for k, a in merged.items()))
+    print(f"Outline saved: {len(scenes)} scenes")
 
 
 def as_list(v):
-    return [v] if isinstance(v, dict) else (v or [])
+    return [] if v is None else v if isinstance(v, list) else [v]
 
 
-def validate_scene(scene: dict, m: dict) -> tuple:
+def selectors_in(step: dict) -> list:
+    sels = []
+    for k in ("show", "hide", "focus"):
+        sels += [x for x in as_list(step.get(k)) if isinstance(x, str)]
+    for sp in as_list(step.get("set")) + as_list(step.get("move")):
+        if isinstance(sp, dict):
+            sels += [sp.get(k) for k in ("sel", "to", "path") if isinstance(sp.get(k), str)]
+    cam = step.get("camera")
+    if isinstance(cam, (str, list)) and cam != "all":
+        sels += [x for x in as_list(cam) if isinstance(x, str)]
+    return sels
+
+
+def validate_scene(scene: dict, m: dict, index: int) -> list:
+    """Structural checks. Layout problems are caught later by the visual review."""
     if not scene.get("title"):
         sys.exit("The scene needs a 'title'")
+    html = scene.get("html") or ""
+    if not html.strip() and not scene.get("continue"):
+        sys.exit("The scene needs 'html' (its markup on the 1600x900 canvas)")
+    if re.search(r"<script\b", html, re.I):
+        sys.exit("No <script> tags in scene html. Use the step 'run' field for custom JavaScript.")
     steps = scene.get("steps") or []
     if not steps:
-        sys.exit("The scene needs 'steps' (narrated sentences with their actions)")
-    extra = scene.get("actors") or {}
-    actors = {**m.get("actors", {}), **extra}
-    auto_layout(actors)
-    warns = check_actors({k: actors[k] for k in extra}) if extra else []
-    known = set(actors)
-
-    def need(ids, where):
-        for i in [ids] if isinstance(ids, str) else ids:
-            if i not in known:
-                sys.exit(f"{where}: actor {i!r} does not exist. Define it in the outline or in the scene's 'actors'.")
-
+        sys.exit("The scene needs 'steps' (narrated sentences, each with what changes on screen)")
+    warns = []
+    if re.search(r"""(?:src|href)\s*=\s*["']https?://""", html, re.I) or re.search(r"url\(\s*['\"]?https?://", scene.get("css", ""), re.I):
+        warns.append("the scene loads something from the internet; keep everything inline (it must work offline)")
+    # markup from the chain this scene builds on, to sanity-check selectors
+    chain_html = html
+    j = index
+    while scene.get("continue") and j > 0:
+        prev = m["scenes"][j - 1]
+        chain_html = (prev.get("html") or "") + chain_html
+        if not prev.get("continue"):
+            break
+        j -= 1
+    step_nums = {int(n) for n in re.findall(r'data-step\s*=\s*["\'](\d+)["\']', html)}
+    if step_nums and max(step_nums) > len(steps):
+        warns.append(f"html has data-step={max(step_nums)} but the scene only has {len(steps)} steps")
     heads = (m.get("plan") or {}).get("headings", [])
     if scene.get("plan"):
         if not heads:
@@ -390,113 +368,217 @@ def validate_scene(scene: dict, m: dict) -> tuple:
                 scene["plan"] = found
     elif heads:
         warns.append("the scene has no 'plan' (the plan section it tells)")
-
-    code_lines = set()
     for si, st in enumerate(steps):
         where = f"Step {si + 1}"
         text = (st.get("text") or "").strip()
         if not text:
             sys.exit(f"{where}: missing 'text' (the narrated sentence)")
+        unknown = set(st) - STEP_KEYS
+        if unknown:
+            sys.exit(f"{where}: unknown field(s) {sorted(unknown)}; valid: {sorted(STEP_KEYS)}")
         if len(text.split()) > 45:
             warns.append(f"{where}: the sentence has {len(text.split())} words; split it (max ~35)")
-        for a in st.get("do") or []:
-            unknown = set(a) - ACTIONS
-            if unknown:
-                sys.exit(f"{where}: unknown action {sorted(unknown)}; valid: {sorted(ACTIONS)}")
-            if "enter" in a:
-                need(a["enter"], where)
-            if "exit" in a:
-                need(a["exit"], where)
-            for lk in as_list(a.get("link")):
-                need([lk.get("from"), lk.get("to")], where)
-                if lk.get("tone") not in TONES:
-                    sys.exit(f"{where}: invalid tone {lk.get('tone')!r}")
-            if "send" in a:
-                s = a["send"]
-                need(s.get("to"), where)
-                if s.get("from"):
-                    need(s["from"], where)
-                if s.get("label") and len(s["label"]) > 28:
-                    warns.append(f"{where}: long envelope label ({s['label']!r}); use 1-3 words")
-            for n in as_list(a.get("note")):
-                need(n.get("at"), where)
-                if len(n.get("text", "")) > 48:
-                    warns.append(f"{where}: long note ({n['text']!r}); use ~6 words max")
-            for mk in as_list(a.get("mark")):
-                need(mk.get("at"), where)
-            for t in as_list(a.get("tone")):
-                need(t.get("at"), where)
-            if a.get("focus"):
-                need(a["focus"], where)
-            if isinstance(a.get("camera"), list):
-                need(a["camera"], where)
-            if a.get("big"):
-                txt = a["big"] if isinstance(a["big"], str) else a["big"].get("text", "")
-                if len(txt) > 70:
-                    warns.append(f"{where}: the big statement is long; use ~10 words max")
-            if a.get("code"):
-                c = a["code"]
-                snippet = c.get("snippet", "")
-                if not snippet.strip():
-                    sys.exit(f"{where}: 'code' needs a 'snippet'")
-                if len(snippet.splitlines()) > 18:
-                    sys.exit(f"{where}: code snippets are limited to 18 lines")
-                start = int(c.get("start", 1))
-                code_lines = set(range(start, start + len(snippet.splitlines())))
-                c["highlight"] = expand_lines(c.get("highlight", []))
-                if set(c["highlight"]) - code_lines:
-                    sys.exit(f"{where}: 'highlight' is outside the snippet ({start}-{max(code_lines)})")
-            if a.get("lines"):
-                a["lines"] = expand_lines(a["lines"])
-                if set(a["lines"]) - code_lines:
-                    sys.exit(f"{where}: 'lines' is outside the open code snippet")
-    return extra, warns
+        changes = (si + 1) in step_nums or any(st.get(k) for k in ("show", "hide", "set", "move", "focus", "lines", "run")) or "camera" in st
+        if not changes and si > 0:
+            warns.append(f"{where}: nothing changes on screen while this sentence plays")
+        for sel in selectors_in(st):
+            mid = re.fullmatch(r"#([\w-]+)", sel.strip())
+            mcl = re.fullmatch(r"\.([\w-]+)", sel.strip())
+            if mid and not re.search(r'id\s*=\s*["\']' + re.escape(mid.group(1)) + r'["\']', chain_html):
+                warns.append(f"{where}: selector {sel!r} matches no id in the scene")
+            if mcl and not re.search(r'class\s*=\s*["\'][^"\']*\b' + re.escape(mcl.group(1)) + r'\b', chain_html):
+                warns.append(f"{where}: selector {sel!r} matches no class in the scene")
+        if st.get("lines"):
+            ln = st["lines"]
+            ln = ln.get("lines") if isinstance(ln, dict) else ln
+            try:
+                expand_lines(as_list(ln))
+            except ValueError:
+                sys.exit(f"{where}: invalid 'lines' {ln!r}")
+    return warns
 
 
-async def synthesize(steps, prefix: str, audio_dir: Path, voice: str) -> None:
+def audio_name(text: str, voice: str) -> str:
+    return hashlib.sha1(f"{voice}|{RATE}|{text}".encode()).hexdigest()[:16] + ".mp3"
+
+
+async def synthesize(steps, audio_dir: Path, voice: str) -> None:
     import edge_tts
 
     async def one(i, st):
-        name = f"{prefix}-{i}.mp3"
+        name = audio_name(st["text"], voice)
+        if (audio_dir / name).exists():         # cached: same sentence, same voice
+            st["src"] = f"audio/{name}"
+            return
         try:
             await edge_tts.Communicate(st["text"], voice, rate=RATE).save(str(audio_dir / name))
             st["src"] = f"audio/{name}"
         except Exception as e:  # offline or service down: the player falls back to the browser voice
+            (audio_dir / name).unlink(missing_ok=True)
             print(f"Warning: edge-tts failed on step {i + 1} ({e}); the browser voice will be used", file=sys.stderr)
             st["src"] = None
 
     await asyncio.gather(*(one(i, s) for i, s in enumerate(steps)))
 
 
-def cmd_add(args) -> None:
-    # The scene arrives on stdin (heredoc) so Claude never needs to write files
-    if args.file in (None, "-"):
-        scene = read_stdin_json("scene")
-    else:
-        try:
-            scene = json.loads(Path(args.file).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            sys.exit(f"Invalid scene JSON: {e}")
+def read_scene(args) -> dict:
+    if getattr(args, "file", None) in (None, "-"):
+        return read_stdin_json("scene")
+    try:
+        return json.loads(Path(args.file).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        sys.exit(f"Invalid scene JSON: {e}")
+
+
+def stored_scene(scene: dict, steps: list) -> dict:
+    return {"title": scene["title"], "kind": scene.get("kind", "normal"), "plan": scene.get("plan"),
+            "continue": bool(scene.get("continue")), "html": scene.get("html", ""), "css": scene.get("css", ""),
+            "steps": steps}
+
+
+def publish(scene: dict, index: int, replace: bool, args) -> None:
     m = load_manifest()
-    extra, warns = validate_scene(scene, m)
-    for w in warns:
+    if not replace:
+        index = len(m["scenes"])
+    if replace and not (0 <= index < len(m["scenes"])):
+        sys.exit(f"There is no scene {index + 1} to replace (published: {len(m['scenes'])})")
+    for w in validate_scene(scene, m, index):
         print(f"Warning: {w}", file=sys.stderr)
-    index = len(m["scenes"])
-    prefix = f"r{m['revision']}-{index + 1:02d}"
-    (tour_dir() / "scenes" / f"{prefix}.json").write_text(json.dumps(scene, ensure_ascii=False, indent=2), encoding="utf-8")
     steps = [dict(st) for st in scene["steps"]]
-    asyncio.run(synthesize(steps, prefix, tour_dir() / "audio", m.get("voice") or voice_for(m.get("lang"))))
+    asyncio.run(synthesize(steps, tour_dir() / "audio", m.get("voice") or voice_for(m.get("lang"))))
     m = load_manifest()  # re-read in case a rewind happened while synthesizing
-    if extra:
-        merged = {**m.get("actors", {}), **extra}
-        auto_layout(merged)
-        m["actors"] = merged
-    m["scenes"].append({"title": scene["title"], "clear": bool(scene.get("clear")),
-                        "kind": scene.get("kind", "normal"), "plan": scene.get("plan"), "steps": steps})
+    if replace:
+        m["scenes"][index] = stored_scene(scene, steps)
+    else:
+        index = len(m["scenes"])
+        m["scenes"].append(stored_scene(scene, steps))
     m["total"] = max(m.get("total") or 0, len(m["scenes"]))
     save_manifest(m)
     ok = sum(1 for s in steps if s.get("src"))
-    print(f"Scene {len(m['scenes'])} published ({ok}/{len(steps)} audio clips from edge-tts)")
+    print(f"Scene {index + 1} {'replaced' if replace else 'published'} ({ok}/{len(steps)} audio clips from edge-tts)")
+    if not getattr(args, "no_review", False):
+        run_review(str(index), f"scene-{index + 1}")
+
+
+def cmd_add(args) -> None:
+    publish(read_scene(args), -1, False, args)
+
+
+def cmd_replace(args) -> None:
+    publish(read_scene(args), args.n - 1, True, args)
+
+
+def cmd_draft(args) -> None:
+    """Review a scene without publishing it."""
+    scene = read_scene(args)
+    m = load_manifest()
+    index = len(m["scenes"]) if args.at is None else args.at - 1
+    for w in validate_scene(scene, m, index):
+        print(f"Warning: {w}", file=sys.stderr)
+    (tour_dir() / "draft.json").write_text(json.dumps({"index": index, "scene": scene}, ensure_ascii=False), encoding="utf-8")
+    run_review("draft", "draft")
+
+
+def cmd_review(args) -> None:
+    run_review(str(args.n - 1), f"scene-{args.n}")
+
+
+# ---------- visual review with a headless browser ----------
+
+def find_browser():
+    if os.environ.get("PLAN_TOUR_BROWSER"):
+        return os.environ["PLAN_TOUR_BROWSER"]
+    cands = []
+    if sys.platform == "win32":
+        for base in filter(None, [os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA")]):
+            cands += [Path(base) / "Microsoft/Edge/Application/msedge.exe", Path(base) / "Google/Chrome/Application/chrome.exe"]
+    elif sys.platform == "darwin":
+        cands += [Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+                  Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+                  Path("/Applications/Chromium.app/Contents/MacOS/Chromium")]
+    for c in cands:
+        if c.exists():
+            return str(c)
+    for name in ("google-chrome", "chromium", "chromium-browser", "microsoft-edge", "msedge", "chrome"):
+        p = shutil.which(name)
+        if p:
+            return p
+    return None
+
+
+def run_review(target: str, label: str) -> None:
+    import subprocess
+    import threading
+    browser = find_browser()
+    if not browser:
+        print("Review skipped: no Edge/Chrome/Chromium found (set PLAN_TOUR_BROWSER to its path).")
+        return
+    d = tour_dir()
+    handler = lambda *a, **kw: NoCacheHandler(*a, directory=str(d), **kw)  # noqa: E731
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
+    httpd = None
+    for port in range(8900, 8960):
+        try:
+            httpd = socketserver.ThreadingTCPServer(("127.0.0.1", port), handler)
+            break
+        except OSError:
+            continue
+    if httpd is None:
+        print("Review skipped: no free local port.")
+        return
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    out_dir = d / "review"
+    out_dir.mkdir(exist_ok=True)
+    png = out_dir / f"{label}.png"
+    url = f"http://127.0.0.1:{port}/index.html?review={target}"
+    try:
+        m = load_manifest()
+        if target == "draft":
+            n_steps = len(json.loads((d / "draft.json").read_text(encoding="utf-8"))["scene"]["steps"])
+        else:
+            n_steps = len(m["scenes"][int(target)]["steps"])
+        rows = (n_steps + 1) // 2
+        size = f"1654,{rows * 524 + 40}"
+        profile = tempfile.mkdtemp(prefix="plan-tour-browser-")
+        flags = ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check",
+                 "--disable-extensions", "--mute-audio", f"--user-data-dir={profile}", "--virtual-time-budget=12000",
+                 f"--window-size={size}"]
+        if sys.platform.startswith("linux") and hasattr(os, "geteuid") and os.geteuid() == 0:
+            flags.append("--no-sandbox")
+        dom = subprocess.run([browser, *flags, "--dump-dom", url], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
+        subprocess.run([browser, *flags, f"--screenshot={png}", url], capture_output=True, timeout=90)
+        shutil.rmtree(profile, ignore_errors=True)
+    except Exception as e:
+        print(f"Review failed: {e}")
+        return
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+    mt = re.search(r'<pre id="lint"[^>]*>(.*?)</pre>', dom.stdout, re.S)
+    report = None
+    if mt:
+        import html as htmlmod
+        try:
+            report = json.loads(htmlmod.unescape(mt.group(1)))
+        except json.JSONDecodeError:
+            report = None
+    what = "Draft" if target == "draft" else f"Scene {int(target) + 1}"
+    if report is None:
+        print(f"{what}: the review page didn't finish rendering (check the scene markup).")
+    else:
+        seen, lines = set(), []
+        for it in report["issues"]:
+            key = (it["type"], it["el"])
+            if key in seen:
+                continue
+            seen.add(key)
+            lines.append(f"  - step {it['step']}: {it['type']}: {it['el']}: {it['msg']}")
+        print(f"{what}: {len(lines)} layout issue(s) found" + (":" if lines else "."))
+        for ln in lines[:25]:
+            print(ln)
+    if png.exists():
+        print(f"Snapshot of every step: {png}")
+        print("Look at it (Read the image) and fix anything that looks off before moving on.")
 
 
 # ---------- status / rewind / finish ----------
@@ -521,7 +603,6 @@ def cmd_status(_args) -> None:
         "outline": [s["title"] for s in outline.get("scenes", [])],
         "case": outline.get("case", ""),
         "plan_sections": (m.get("plan") or {}).get("headings", []),
-        "actors": {k: f"{a['label']} ({a['x']},{a['y']})" for k, a in m.get("actors", {}).items()},
     }, ensure_ascii=False, indent=2))
 
 
@@ -565,7 +646,20 @@ def main() -> None:
     s.set_defaults(fn=cmd_serve)
     s = sub.add_parser("add")
     s.add_argument("file", nargs="?", default="-")
+    s.add_argument("--no-review", action="store_true")
     s.set_defaults(fn=cmd_add)
+    s = sub.add_parser("draft")
+    s.add_argument("file", nargs="?", default="-")
+    s.add_argument("--at", type=int, default=None, help="scene position it will take (default: next)")
+    s.set_defaults(fn=cmd_draft)
+    s = sub.add_parser("replace")
+    s.add_argument("n", type=int)
+    s.add_argument("file", nargs="?", default="-")
+    s.add_argument("--no-review", action="store_true")
+    s.set_defaults(fn=cmd_replace)
+    s = sub.add_parser("review")
+    s.add_argument("n", type=int)
+    s.set_defaults(fn=cmd_review)
     sub.add_parser("status").set_defaults(fn=cmd_status)
     s = sub.add_parser("rewind")
     s.add_argument("n", type=int, nargs="?", default=None)
