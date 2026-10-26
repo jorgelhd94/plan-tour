@@ -6,7 +6,7 @@ Plans are walls of text. Plan Tour has Claude explain them the way a good explai
 
 ![A plan tour: the request travels to the middleware, which swaps the merchant](docs/tour.gif)
 
-Want to see it without installing anything? Download [`docs/demo.html`](docs/demo.html) and open it in your browser (Edge gives the most natural voice).
+Want to see it without installing anything? **[Watch the demo in your browser](https://jorgelhd94.github.io/plan-tour/demo.html)** (Edge gives the most natural voice). To keep a copy, open [`docs/demo.html`](docs/demo.html), use **Download raw file** and open the downloaded file; saving the GitHub page itself won't work.
 
 ## Features
 
